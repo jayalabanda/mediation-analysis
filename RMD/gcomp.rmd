@@ -1,0 +1,220 @@
+---
+title: "GComp"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(qgcomp)
+library(knitr)
+library(ggplot2)
+```
+
+```{r}
+data("metals")
+head(metals)
+```
+$$\large{Linear\; Model}$$
+
+```{r}
+# Mixture variables
+Xnm <- c(
+    'arsenic','barium','cadmium','calcium','chromium','copper',
+    'iron','lead','magnesium','manganese','mercury','selenium','silver',
+    'sodium','zinc'
+)
+covars = c('nitrate','nitrite','sulfate','ph', 'total_alkalinity','total_hardness')
+```
+
+```{r}
+system.time(qc.fit <- qgcomp.noboot(y ~ ., metals[, c(Xnm, 'y')], family = gaussian()))
+```
+
+```{r}
+qc.fit
+```
+
+```{r}
+head(qc.fit$qx)
+```
+
+```{r}
+qc.fit$qx$y <- qc.fit$fit$data$y
+newfit <- lm(y ~ arsenic_q + barium_q + cadmium_q + calcium_q + chromium_q + copper_q + 
+    iron_q + lead_q + magnesium_q + manganese_q + mercury_q + selenium_q + 
+    silver_q + sodium_q + zinc_q, data=qc.fit$qx
+)
+newfit
+```
+
+```{r}
+sum(newfit$coefficients[-1])
+```
+
+```{r}
+coef(qc.fit)
+```
+$$\large{Logistic\; Model}$$
+
+```{r}
+qc.fit2 <- qgcomp.noboot(disease_state ~ ., expnms = Xnm,
+                         data = metals[, c(Xnm, 'disease_state')],
+                         family = binomial(), q = 4)
+qcboot.fit2 <- qgcomp.boot(disease_state ~ ., expnms = Xnm,
+                           data = metals[, c(Xnm, 'disease_state')],
+                           family = binomial(), q = 4, B = 250,
+                           seed = 125, rr = FALSE)
+qcboot.fit2b <- qgcomp.boot(disease_state ~ ., expnms = Xnm,
+                            data = metals[, c(Xnm, 'disease_state')],
+                            family = binomial(), q = 4, B = 250,
+                            seed = 125, rr = TRUE)
+```
+
+```{r}
+qc.fit2
+```
+
+```{r}
+qcboot.fit2
+```
+
+```{r}
+qcboot.fit2b
+```
+$$\large{Plotting}$$
+
+```{r}
+qc.fit3 <- qgcomp.noboot(y ~ mage35 + arsenic + barium + cadmium + calcium + chloride + 
+                           chromium + copper + iron + lead + magnesium + manganese + 
+                           mercury + selenium + silver + sodium + zinc,
+                         expnms=Xnm,
+                         metals, family=gaussian(), q=4)
+qc.fit3
+```
+
+```{r}
+plot(qc.fit3)
+```
+
+```{r}
+qcboot.fit3 <- qgcomp.boot(y ~ mage35 + arsenic + barium + cadmium + calcium + chloride + 
+                           chromium + copper + iron + lead + magnesium + manganese + 
+                           mercury + selenium + silver + sodium + zinc,
+                         expnms=Xnm,
+                         metals, family=gaussian(), q=4, B=250,
+                         seed=125)
+qcboot.fit3
+```
+
+```{r}
+plot(qcboot.fit3)
+```
+
+```{r}
+plot(qcboot.fit3, pointwiseref = 3)
+```
+
+```{r}
+pointwisebound.boot(qcboot.fit3, pointwiseref = 3)
+```
+
+```{r}
+modelbound.boot(qcboot.fit3)
+```
+$$\large{Non-linearity}$$
+
+```{r}
+qcboot.fit4 <- qgcomp(y~. + .^2, expnms = Xnm,
+                      metals[, c(Xnm, 'y')], family = gaussian(),
+                      q = 4, B = 25, seed = 125)
+plot(qcboot.fit4)
+```
+
+```{r}
+qcboot.fit5 <- qgcomp(y~. + .^2, expnms = Xnm,
+                      metals[, c(Xnm, 'y')], family = gaussian(),
+                      q = 4, degree = 2, 
+                      B = 250, rr = FALSE, seed = 125)
+plot(qcboot.fit5)
+```
+
+```{r}
+pointwisebound.boot(qcboot.fit5)
+```
+
+```{r}
+modelbound.boot(qcboot.fit5)
+```
+$$\large{Comparing}$$
+
+```{r}
+library(splines)
+
+cormat <- cor(metals[, Xnm])
+idx <- which(cormat > 0.6 & cormat < 1.0, arr.ind = TRUE)
+newXnm <- unique(rownames(idx))
+```
+
+```{r}
+qc.fit6lin <- qgcomp.boot(y ~ iron + lead + cadmium + 
+                         mage35 + arsenic + magnesium + manganese + mercury + 
+                         selenium + silver + sodium + zinc,
+                         expnms = newXnm,
+                         metals, family=gaussian(), q=8, B=250)
+
+qc.fit6nonlin <- qgcomp.boot(y ~ bs(iron) + bs(cadmium) + bs(lead) +
+                         mage35 + arsenic + magnesium + manganese + mercury + 
+                         selenium + silver + sodium + zinc,
+                         expnms = newXnm,
+                         metals, family=gaussian(), q=8, B=250, degree=2)
+
+qc.fit6nonhom <- qgcomp.boot(y ~ bs(iron)*bs(lead) + bs(iron)*bs(cadmium) + bs(lead)*bs(cadmium) +
+                         mage35 + arsenic + magnesium + manganese + mercury + 
+                         selenium + silver + sodium + zinc,
+                         expnms = newXnm,
+                         metals, family=gaussian(), q=8, B=250, degree=3)
+```
+
+```{r}
+pl.fit6lin <- plot(qc.fit6lin, suppressprint = TRUE, pointwiseref = 4)
+pl.fit6lin + coord_cartesian(ylim=c(-0.75, .75)) + 
+    ggtitle("Linear fit: mixture of iron, lead, and cadmium")
+```
+
+```{r}
+pl.fit6nonlin <- plot(qc.fit6nonlin, suppressprint = TRUE, pointwiseref = 4)
+pl.fit6nonlin + coord_cartesian(ylim=c(-0.75, .75)) + 
+    ggtitle("Non-linear fit: mixture of iron, lead, and cadmium")
+```
+
+```{r}
+pl.fit6nonhom <- plot(qc.fit6nonhom, suppressprint = TRUE, pointwiseref = 4)
+pl.fit6nonhom + coord_cartesian(ylim=c(-0.75, .75)) + 
+    ggtitle("Non-linear, non-homogeneous fit: mixture of iron, lead, and cadmium")
+```
+
+```{r}
+qc.overfit <- qgcomp.boot(y ~ bs(iron) + bs(cadmium) + bs(lead) +
+                         mage35 + bs(arsenic) + bs(magnesium) + bs(manganese) + bs(mercury) + 
+                         bs(selenium) + bs(silver) + bs(sodium) + bs(zinc),
+                         expnms = Xnm,
+                         metals, family=gaussian(), q=8, B=250, degree=1)
+qc.overfit
+```
+
+```{r}
+plot(qc.overfit, pointwiseref = 5)
+```
+
+```{r}
+plot(qc.overfit, flexfit = FALSE, pointwiseref = 5)
+```
+$$\large{Other\; non-linearity}$$
+
+```{r}
+
+```
+

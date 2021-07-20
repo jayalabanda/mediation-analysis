@@ -1,0 +1,1075 @@
+---
+title: "Targeted Learning"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(data.table)
+library(origami)
+library(knitr)
+library(kableExtra)
+
+# load data set and take a peek
+washb_data <- fread(
+  paste0(
+    "https://raw.githubusercontent.com/tlverse/tlverse-data/master/",
+    "wash-benefits/washb_data.csv"
+  ),
+  stringsAsFactors = TRUE
+)
+```
+
+```{r}
+n_samp <- 30
+washb_data <- washb_data[seq_len(n_samp), ]
+head(washb_data) %>%
+  kable(format = "simple")
+```
+
+```{r}
+library(skimr)
+
+skim(washb_data)
+```
+
+
+```{r}
+folds_resubstitution(nrow(washb_data))
+```
+
+```{r}
+folds <- folds_loo(nrow(washb_data))
+folds[[1]]
+folds[[2]]
+```
+
+```{r}
+folds <- folds_vfold(nrow(washb_data), V = 2)
+folds[[1]]
+folds[[2]]
+```
+
+```{r}
+folds <- folds_montecarlo(nrow(washb_data), V = 2, pvalidation = 0.2)
+folds[[1]]
+folds[[2]]
+```
+
+```{r}
+folds <- folds_bootstrap(nrow(washb_data), V = 2)
+folds[[1]]
+folds[[2]]
+```
+
+```{r}
+library(ggfortify)
+
+data(AirPassengers)
+AP <- AirPassengers
+
+autoplot(AP) +
+  labs(
+    x = "Date",
+    y = "Passenger numbers (1000's)",
+    title = "Air Passengers from 1949 to 1961"
+  )
+
+t <- length(AP)
+```
+
+```{r}
+folds <- folds_rolling_origin(
+  t,
+  first_window = 50, validation_size = 10, gap = 5, batch = 20
+)
+folds[[1]]
+folds[[2]]
+```
+
+```{r}
+folds <- folds_rolling_window(
+  t,
+  window_size = 50, validation_size = 10, gap = 5, batch = 20
+)
+folds[[1]]
+folds[[2]]
+```
+
+```{r}
+library(dplyr)
+library(stringr)
+library(tidyr)
+
+washb_data <- fread(
+  paste0(
+    "https://raw.githubusercontent.com/tlverse/tlverse-data/master/",
+    "wash-benefits/washb_data.csv"
+  ),
+  stringsAsFactors = TRUE
+)
+
+# Remove missing data, then pick just the first 500 rows
+washb_data <- washb_data %>%
+  drop_na() %>%
+  slice(1:500)
+
+outcome <- "whz"
+covars <- colnames(washb_data)[-which(names(washb_data) == outcome)]
+```
+
+```{r}
+head(washb_data) %>%
+    kable(format = "simple")
+```
+
+```{r}
+outcome
+covars
+```
+
+```{r}
+lm_mod <- lm(whz ~ ., data = washb_data)
+summary(lm_mod)
+```
+
+```{r}
+err <- mean(resid(lm_mod)^2)
+err
+```
+
+```{r}
+cv_lm <- function(fold, data, reg_form) {
+  # get name and index of outcome variable from regression formula
+  out_var <- as.character(unlist(str_split(reg_form, " "))[1])
+  out_var_ind <- as.numeric(which(colnames(data) == out_var))
+
+  # split up data into training and validation sets
+  train_data <- training(data)
+  valid_data <- validation(data)
+
+  # fit linear model on training set and predict on validation set
+  mod <- lm(as.formula(reg_form), data = train_data)
+  preds <- predict(mod, newdata = valid_data)
+  valid_data <- as.data.frame(valid_data)
+
+  # capture results to be returned as output
+  out <- list(
+    coef = data.frame(t(coef(mod))),
+    SE = (preds - valid_data[, out_var_ind])^2
+  )
+  return(out)
+}
+```
+
+
+```{r}
+resub <- make_folds(washb_data, fold_fun = folds_resubstitution)[[1]]
+resub_results <- cv_lm(fold = resub, data = washb_data, reg_form = "whz ~ .")
+mean(resub_results$SE, na.rm = TRUE)
+```
+
+```{r}
+folds <- make_folds(washb_data)
+cvlm_results <- cross_validate(
+  cv_fun = cv_lm, folds = folds, data = washb_data, reg_form = "whz ~ .",
+  use_future = FALSE
+)
+mean(cvlm_results$SE, na.rm = TRUE)
+```
+
+```{r}
+library(randomForest)
+
+cv_rf <- function(fold, data, reg_form) {
+  # get name and index of outcome variable from regression formula
+  out_var <- as.character(unlist(str_split(reg_form, " "))[1])
+  out_var_ind <- as.numeric(which(colnames(data) == out_var))
+
+  # define training and validation sets based on input object of class "folds"
+  train_data <- training(data)
+  valid_data <- validation(data)
+
+  # fit Random Forest regression on training set and predict on holdout set
+  mod <- randomForest(formula = as.formula(reg_form), data = train_data)
+  preds <- predict(mod, newdata = valid_data)
+  valid_data <- as.data.frame(valid_data)
+
+  # define output object to be returned as list (for flexibility)
+  out <- list(
+    coef = data.frame(mod$coefs),
+    SE = ((preds - valid_data[, out_var_ind])^2)
+  )
+  return(out)
+}
+```
+
+```{r}
+folds <- make_folds(washb_data)
+cvrf_results <- cross_validate(
+  cv_fun = cv_rf, folds = folds, 
+  data = washb_data, reg_form = "whz ~ .",
+  use_future = FALSE
+)
+mean(cvrf_results$SE)
+```
+
+```{r}
+print(AirPassengers)
+```
+
+```{r}
+folds <- make_folds(AirPassengers,
+  fold_fun = folds_rolling_origin,
+  first_window = 36, validation_size = 24, batch = 10
+)
+```
+
+```{r}
+length(folds)
+folds[[1]]
+folds[[2]]
+```
+
+```{r}
+library(forecast)
+
+# function to calculate cross-validated squared error
+cv_forecasts <- function(fold, data) {
+  # Get training and validation data
+  train_data <- training(data)
+  valid_data <- validation(data)
+  valid_size <- length(valid_data)
+
+  train_ts <- ts(log10(train_data), frequency = 12)
+
+  # First arima model
+  arima_fit <- arima(train_ts, c(0, 1, 1),
+    seasonal = list(
+      order = c(0, 1, 1),
+      period = 12
+    )
+  )
+  raw_arima_pred <- predict(arima_fit, n.ahead = valid_size)
+  arima_pred <- 10^raw_arima_pred$pred
+  arima_MSE <- mean((arima_pred - valid_data)^2)
+
+  # Second arima model
+  arima_fit2 <- arima(train_ts, c(5, 1, 1),
+    seasonal = list(
+      order = c(0, 1, 1),
+      period = 12
+    )
+  )
+  raw_arima_pred2 <- predict(arima_fit2, n.ahead = valid_size)
+  arima_pred2 <- 10^raw_arima_pred2$pred
+  arima_MSE2 <- mean((arima_pred2 - valid_data)^2)
+
+  out <- list(mse = data.frame(
+    fold = fold_index(),
+    arima = arima_MSE, arima2 = arima_MSE2
+  ))
+  return(out)
+}
+
+mses <- cross_validate(
+  cv_fun = cv_forecasts, folds = folds, data = AirPassengers,
+  use_future = FALSE
+)
+```
+
+```{r}
+mses$mse
+```
+
+```{r}
+colMeans(mses$mse[, c("arima", "arima2")])
+```
+$$\large{Super Learner}$$
+
+```{r}
+washb_data <- fread(
+  paste0(
+    "https://raw.githubusercontent.com/tlverse/tlverse-data/master/",
+    "wash-benefits/washb_data.csv"
+  ),
+  stringsAsFactors = TRUE
+)
+```
+
+```{r}
+head(washb_data) %>%
+    kable(format = "simple")
+```
+
+```{r}
+library(sl3)
+
+outcome <- "whz"
+covars <- colnames(washb_data)[-which(names(washb_data) == outcome)]
+
+# create the sl3 task
+washb_task <- make_sl3_Task(
+  data = washb_data,
+  covariates = covars,
+  outcome = outcome
+)
+```
+
+```{r}
+washb_task
+```
+
+```{r}
+length(washb_task$folds)
+```
+
+```{r}
+head(washb_task$folds[[1]]$training_set)
+```
+
+```{r}
+head(washb_task$folds[[1]]$validation_set)
+```
+
+```{r}
+any(
+  washb_task$folds[[1]]$training_set %in%
+    washb_task$folds[[1]]$validation_set
+)
+```
+
+```{r}
+sl3_list_properties()
+```
+
+```{r}
+sl3_list_learners("continuous")
+```
+
+```{r}
+lrn_glm <- make_learner(Lrnr_glm)
+lrn_mean <- Lrnr_mean$new()
+```
+
+
+```{r}
+lrn_lasso <- make_learner(Lrnr_glmnet) # alpha default is 1
+lrn_ridge <- Lrnr_glmnet$new(alpha = 0)
+lrn_enet.5 <- make_learner(Lrnr_glmnet, alpha = 0.5)
+
+lrn_polspline <- Lrnr_polspline$new()
+
+lrn_ranger100 <- make_learner(Lrnr_ranger, num.trees = 100)
+
+lrn_hal_faster <- Lrnr_hal9001$new(max_degree = 2, reduce_basis = 0.05)
+
+xgb_fast <- Lrnr_xgboost$new() # default with nrounds = 20 is pretty fast
+xgb_50 <- Lrnr_xgboost$new(nrounds = 50)
+```
+
+
+```{r}
+interactions <- list(c("elec", "tr"), c("tr", "hfiacat"))
+# main terms as well as the interactions above will be included
+lrn_interaction <- make_learner(Lrnr_define_interactions, interactions)
+```
+
+
+```{r}
+lrn_glm_interaction <- make_learner(Pipeline, lrn_interaction, lrn_glm)
+lrn_glm_interaction
+```
+
+```{r}
+library(SuperLearner)
+
+lrn_bayesglm <- Lrnr_pkg_SuperLearner$new("SL.bayesglm")
+```
+
+```{r}
+grid_params <- list(
+  cost = c(0.01, 0.1, 1, 10, 100, 1000),
+  gamma = c(0.001, 0.01, 0.1, 1),
+  kernel = c("polynomial", "radial", "sigmoid"),
+  degree = c(1, 2, 3)
+)
+grid <- expand.grid(grid_params, KEEP.OUT.ATTRS = FALSE)
+svm_learners <- apply(grid, MARGIN = 1, function(tuning_params) {
+  do.call(Lrnr_svm$new, as.list(tuning_params))
+})
+```
+
+
+```{r}
+grid_params <- list(
+  max_depth = c(2, 4, 6),
+  eta = c(0.001, 0.1, 0.3),
+  nrounds = 100
+)
+grid <- expand.grid(grid_params, KEEP.OUT.ATTRS = FALSE)
+grid
+```
+
+```{r}
+xgb_learners <- apply(grid, MARGIN = 1, function(tuning_params) {
+  do.call(Lrnr_xgboost$new, as.list(tuning_params))
+})
+xgb_learners
+```
+
+```{r}
+lrnr_caret_nnet <- make_learner(Lrnr_caret, algorithm = "nnet")
+lrnr_caret_bartMachine <- make_learner(Lrnr_caret,
+  algorithm = "bartMachine",
+  method = "boot", metric = "Accuracy",
+  tuneLength = 10
+)
+```
+
+
+```{r}
+stack <- make_learner(
+  Stack, lrn_glm, lrn_polspline, lrn_enet.5, lrn_ridge, lrn_lasso, xgb_50
+)
+stack
+```
+
+```{r}
+learners <- c(lrn_glm, lrn_polspline, lrn_enet.5, lrn_ridge, lrn_lasso, xgb_50)
+names(learners) <- c(
+  "glm", "polspline", "enet.5", "ridge", "lasso", "xgboost50"
+)
+# next make the stack
+stack <- make_learner(Stack, learners)
+stack
+```
+
+```{r}
+cv_stack <- Lrnr_cv$new(stack)
+cv_stack
+```
+
+```{r}
+miniforest <- Lrnr_ranger$new(
+  num.trees = 20, write.forest = FALSE,
+  importance = "impurity_corrected"
+)
+
+# learner must already be instantiated, we did this when we created miniforest
+screen_rf <- Lrnr_screener_importance$new(learner = miniforest, num_screen = 5)
+screen_rf
+```
+
+```{r}
+# which covariates are selected on the full data?
+screen_rf$train(washb_task)
+```
+
+```{r}
+keepme <- c("aged", "momage")
+# screener must already be instantiated, we did this when we created screen_rf
+screen_augment_rf <- Lrnr_screener_augment$new(
+  screener = screen_rf, default_covariates = keepme
+)
+screen_augment_rf
+
+```
+
+```{r}
+screen_lasso <- Lrnr_screener_coefs$new(learner = lrn_lasso, threshold = 0)
+screen_lasso
+```
+
+```{r}
+screen_rf_pipe <- make_learner(Pipeline, screen_rf, stack)
+screen_lasso_pipe <- make_learner(Pipeline, screen_lasso, stack)
+```
+
+
+```{r}
+learners2 <- c(learners, screen_rf_pipe, screen_lasso_pipe)
+names(learners2) <- c(names(learners), "randomforest_screen", "lasso_screen")
+
+fancy_stack <- make_learner(Stack, learners2)
+fancy_stack
+```
+
+```{r}
+sl <- make_learner(Lrnr_sl, learners = fancy_stack)
+```
+
+
+```{r}
+discrete_sl_metalrn <- Lrnr_cv_selector$new()
+discrete_sl <- Lrnr_sl$new(
+  learners = fancy_stack,
+  metalearner = discrete_sl_metalrn
+)
+```
+
+
+```{r}
+set.seed(4197)
+sl_fit <- sl$train(washb_task)
+```
+
+```{r}
+sl_preds <- sl_fit$predict()
+head(sl_preds)
+```
+
+```{r}
+sl_fit_summary <- sl_fit$print()
+```
+
+```{r}
+washb_task_new <- make_sl3_Task(
+  data = washb_data,
+  covariates = covars,
+  outcome = outcome,
+  folds = origami::make_folds(washb_data, fold_fun = folds_vfold, V = 5)
+)
+CVsl <- CV_lrnr_sl(
+  lrnr_sl = sl_fit, task = washb_task_new, loss_fun = loss_squared_error
+)
+```
+
+```{r}
+washb_varimp <- importance(sl_fit, loss = loss_squared_error, type = "permute")
+```
+
+```{r}
+washb_varimp %>%
+    kable(format = "simple")
+```
+
+```{r}
+# plot variable importance
+importance_plot(
+  washb_varimp,
+  main = "sl3 Variable Importance for WASH Benefits Example Data"
+)
+```
+$$\large{Exercises}$$
+
+```{r}
+library(readr)
+library(sl3)
+library(magrittr)
+# load the data set
+db_data <- url(
+  paste0(
+    "https://raw.githubusercontent.com/benkeser/sllecture/master/",
+    "chspred.csv"
+  )
+)
+chspred <- read_csv(file = db_data, col_names = TRUE)
+```
+
+```{r}
+spec(chspred)
+```
+
+```{r}
+library(kableExtra)
+head(chspred) %>%
+    kable(format = "simple")
+```
+
+```{r}
+chspred_task <- make_sl3_Task(
+  data = chspred,
+  covariates = head(colnames(chspred), -1),
+  outcome = "mi"
+)
+```
+
+```{r}
+glm_learner <- Lrnr_glm$new()
+lasso_learner <- Lrnr_glmnet$new(alpha = 1)
+ridge_learner <- Lrnr_glmnet$new(alpha = 0)
+enet_learner <- Lrnr_glmnet$new(alpha = 0.5)
+
+curated_learner <- Lrnr_glm_fast$new(covariates = c("smoke", "beta", "waist"))
+mean_learner <- Lrnr_mean$new()
+glm_fast_learner <- Lrnr_glm_fast$new()
+ranger_learner <- Lrnr_ranger$new()
+svm_learner <- Lrnr_svm$new()
+xgb_learner <- Lrnr_xgboost$new()
+```
+
+```{r}
+# Screening
+screen_cor <- make_learner(Lrnr_screener_correlation)
+glm_pipeline <- make_learner(Pipeline, screen_cor, glm_learner)
+```
+
+```{r}
+# Stack learners
+stack <- make_learner(
+  Stack,
+  glm_pipeline, glm_learner,
+  lasso_learner, ridge_learner, enet_learner,
+  curated_learner, mean_learner, glm_fast_learner,
+  ranger_learner, svm_learner, xgb_learner
+)
+```
+
+```{r}
+# Make and train SL
+sl <- Lrnr_sl$new(
+  learners = stack
+)
+```
+
+```{r}
+sl_fit <- sl$train(chspred_task)
+sl_fit$print()
+```
+
+```{r}
+CVsl <- CV_lrnr_sl(sl_fit, chspred_task, loss_loglik_binomial)
+CVsl
+```
+
+$$\large{TMLE}$$
+
+```{r}
+library(data.table)
+library(dplyr)
+library(tmle3)
+library(sl3)
+
+washb_data <- fread(
+  paste0(
+    "https://raw.githubusercontent.com/tlverse/tlverse-data/master/",
+    "wash-benefits/washb_data.csv"
+  ),
+  stringsAsFactors = TRUE
+)
+```
+
+```{r}
+node_list <- list(
+  W = c(
+    "month", "aged", "sex", "momage", "momedu",
+    "momheight", "hfiacat", "Nlt18", "Ncomp", "watmin",
+    "elec", "floor", "walls", "roof", "asset_wardrobe",
+    "asset_table", "asset_chair", "asset_khat",
+    "asset_chouki", "asset_tv", "asset_refrig",
+    "asset_bike", "asset_moto", "asset_sewmach",
+    "asset_mobile"
+  ),
+  A = "tr",
+  Y = "whz"
+)
+```
+
+```{r}
+processed <- process_missing(washb_data, node_list)
+washb_data <- processed$data
+node_list <- processed$node_list
+```
+
+
+```{r}
+ate_spec <- tmle_ATE(
+  treatment_level = "Nutrition + WSH",
+  control_level = "Control"
+)
+```
+
+```{r}
+lrnr_mean <- make_learner(Lrnr_mean)
+lrnr_rf <- make_learner(Lrnr_ranger)
+
+ls_metalearner <- make_learner(Lrnr_nnls)
+mn_metalearner <- make_learner(
+  Lrnr_solnp, metalearner_linear_multinomial,
+  loss_loglik_multinomial
+)
+```
+
+```{r}
+sl_Y <- Lrnr_sl$new(
+  learners = list(lrnr_mean, lrnr_rf),
+  metalearner = ls_metalearner
+)
+
+sl_A <- Lrnr_sl$new(
+  learners = list(lrnr_mean, lrnr_rf),
+  metalearner = mn_metalearner
+)
+
+learner_list <- list(A = sl_A, Y = sl_Y)
+```
+
+```{r}
+tmle_fit <- tmle3(ate_spec, washb_data, node_list, learner_list)
+print(tmle_fit)
+```
+
+```{r}
+estimates <- tmle_fit$summary$psi_transformed
+print(estimates)
+```
+
+```{r}
+tmle_task <- ate_spec$make_tmle_task(washb_data, node_list)
+```
+
+```{r}
+tmle_task$npsem
+```
+
+```{r}
+initial_likelihood <- ate_spec$make_initial_likelihood(
+  tmle_task,
+  learner_list
+)
+
+print(initial_likelihood)
+```
+
+```{r}
+initial_likelihood$get_likelihoods(tmle_task)
+```
+
+```{r}
+targeted_likelihood <- Targeted_Likelihood$new(initial_likelihood)
+```
+
+```{r}
+targeted_likelihood_no_cv <-
+  Targeted_Likelihood$new(initial_likelihood,
+    updater = list(cvtmle = FALSE)
+  )
+```
+
+```{r}
+tmle_params <- ate_spec$make_params(tmle_task, targeted_likelihood)
+print(tmle_params)
+```
+
+```{r}
+tmle_fit_manual <- fit_tmle3(
+  tmle_task, targeted_likelihood, tmle_params,
+  targeted_likelihood$updater
+)
+
+print(tmle_fit_manual)
+```
+
+```{r}
+tsm_spec <- tmle_TSM_all()
+targeted_likelihood <- Targeted_Likelihood$new(initial_likelihood)
+all_tsm_params <- tsm_spec$make_params(tmle_task, targeted_likelihood)
+print(all_tsm_params)
+```
+
+```{r}
+ate_param <- define_param(
+  Param_delta, targeted_likelihood,
+  delta_param_ATE,
+  list(all_tsm_params[[1]], all_tsm_params[[4]])
+)
+print(ate_param)
+```
+
+```{r}
+all_params <- c(all_tsm_params, ate_param)
+
+tmle_fit_multiparam <- fit_tmle3(
+  tmle_task, targeted_likelihood, all_params,
+  targeted_likelihood$updater
+)
+
+print(tmle_fit_multiparam)
+```
+
+$$\large{Exercises}$$
+
+```{r}
+# load the data set
+data(cpp)
+cpp <- cpp %>%
+  as_tibble() %>%
+  dplyr::filter(!is.na(haz)) %>%
+  mutate(
+    parity01 = as.numeric(parity > 0),
+    haz01 = as.numeric(haz > 0)
+  )
+```
+
+```{r}
+node_list <- list(
+  W = c("apgar1", "apgar5", "gagebrth", "mage", "meducyrs"),
+  A = "parity01",
+  Y = "haz01"
+)
+```
+
+```{r}
+processed <- process_missing(cpp, node_list)
+cpp <- processed$data
+node_list <- processed$node_list
+```
+
+```{r}
+ate_spec <- tmle_ATE(
+  treatment_level = 1,
+  control = 0
+)
+```
+
+```{r}
+lrnr_mean <- make_learner(Lrnr_mean)
+lrnr_rf <- make_learner(Lrnr_ranger)
+
+ls_metalearner <- make_learner(Lrnr_nnls)
+mn_metalearner <- make_learner(
+  Lrnr_solnp, metalearner_logistic_binomial,
+  loss_loglik_binomial
+)
+```
+
+```{r}
+sl_Y <- Lrnr_sl$new(
+  learners = list(lrnr_mean, lrnr_rf),
+  metalearner = ls_metalearner
+)
+sl_A <- Lrnr_sl$new(
+  learners = list(lrnr_mean, lrnr_rf),
+  metalearner = mn_metalearner
+)
+learner_list <- list(A = sl_A, Y = sl_Y)
+```
+
+```{r}
+tmle_fit <- tmle3(ate_spec, cpp, node_list, learner_list)
+print(tmle_fit)
+```
+
+```{r}
+estimates <- tmle_fit$summary$psi_transformed
+print(estimates)
+```
+```{r}
+library(data.table)
+library(sl3)
+library(tmle3)
+library(tmle3mopttx)
+```
+
+```{r}
+data("data_bin")
+data <- data_bin
+head(data)
+```
+
+```{r}
+node_list <- list(
+  W = c("W1", "W2", "W3"),
+  A = "A",
+  Y = "Y"
+)
+```
+
+```{r}
+lrn_xgboost_50 <- Lrnr_xgboost$new(nrounds = 50)
+lrn_xgboost_100 <- Lrnr_xgboost$new(nrounds = 100)
+lrn_xgboost_300 <- Lrnr_xgboost$new(nrounds = 300)
+lrn_mean <- Lrnr_mean$new()
+lrn_glm <- Lrnr_glm_fast$new()
+```
+
+```{r}
+Q_learner <- Lrnr_sl$new(
+  learners = list(
+    lrn_xgboost_50, lrn_xgboost_100, lrn_xgboost_300, lrn_mean, lrn_glm
+  ),
+  metalearner = Lrnr_nnls$new()
+)
+```
+
+```{r}
+g_learner <- Lrnr_sl$new(
+  learners = list(lrn_xgboost_100, lrn_glm),
+  metalearner = Lrnr_nnls$new()
+)
+```
+
+```{r}
+b_learner <- Lrnr_sl$new(
+  learners = list(
+    lrn_xgboost_50, lrn_xgboost_100, lrn_xgboost_300, lrn_mean, lrn_glm
+  ),
+  metalearner = Lrnr_nnls$new()
+)
+```
+
+```{r}
+learner_list <- list(Y = Q_learner, A = g_learner, B = b_learner)
+```
+
+```{r}
+tmle_spec <- tmle3_mopttx_blip_revere(
+  V = c("W1", "W2", "W3"),
+  type = "blip1",
+  learners = learner_list,
+  maximize = TRUE, complex = TRUE, realistic = FALSE
+)
+```
+
+```{r}
+fit <- tmle3(tmle_spec, data, node_list, learner_list)
+fit
+```
+
+```{r}
+data("data_cat_realistic")
+data <- data_cat_realistic
+head(data)
+```
+
+```{r}
+node_list <- list(
+  W = c("W1", "W2", "W3", "W4"),
+  A = "A",
+  Y = "Y"
+)
+```
+
+```{r}
+Q_learner <- Lrnr_sl$new(
+  learners = list(
+    lrn_xgboost_50, lrn_xgboost_100, lrn_xgboost_300, lrn_mean, lrn_glm
+  ),
+  metalearner = Lrnr_nnls$new()
+)
+```
+
+```{r}
+mn_metalearner <- make_learner(Lrnr_solnp,
+  loss_function = loss_loglik_multinomial,
+  learner_function = metalearner_linear_multinomial
+)
+```
+
+```{r}
+g_learner <- make_learner(
+  Lrnr_sl,
+  list(lrn_xgboost_100, lrn_xgboost_300, lrn_mean),
+  mn_metalearner
+)
+```
+
+```{r}
+learners <- list(
+  lrn_xgboost_50, lrn_xgboost_100, lrn_xgboost_300, lrn_mean, lrn_glm
+)
+b_learner <- create_mv_learners(learners = learners)
+```
+
+```{r}
+learner_list <- list(Y = Q_learner, A = g_learner, B = b_learner)
+```
+
+```{r}
+tmle_spec <- tmle3_mopttx_blip_revere(
+  V = c("W1", "W2", "W3", "W4"), type = "blip2",
+  learners = learner_list, maximize = TRUE, complex = TRUE,
+  realistic = FALSE
+)
+```
+
+```{r}
+fit <- tmle3(tmle_spec, data, node_list, learner_list)
+fit
+```
+
+```{r}
+tmle_spec <- tmle3_mopttx_blip_revere(
+  V = c("W4", "W3", "W2", "W1"), type = "blip2",
+  learners = learner_list,
+  maximize = TRUE, complex = FALSE, realistic = FALSE
+)
+```
+
+```{r}
+fit <- tmle3(tmle_spec, data, node_list, learner_list)
+fit
+```
+
+```{r}
+tmle_spec <- tmle3_mopttx_blip_revere(
+  V = c("W4", "W3", "W2", "W1"), type = "blip2",
+  learners = learner_list,
+  maximize = TRUE, complex = TRUE, realistic = TRUE
+)
+```
+
+```{r}
+fit <- tmle3(tmle_spec, data, node_list, learner_list)
+fit
+```
+
+```{r}
+# initialize a tmle specification
+tmle_spec_Q <- tmle3_mopttx_Q(maximize = TRUE)
+
+# Define data:
+tmle_task <- tmle_spec_Q$make_tmle_task(data, node_list)
+
+# Define likelihood:
+initial_likelihood <- tmle_spec_Q$make_initial_likelihood(
+  tmle_task,
+  learner_list
+)
+
+# Estimate the parameter:
+Q_learning(tmle_spec_Q, initial_likelihood, tmle_task)[1]
+```
+
+```{r}
+# bin baseline covariates to 3 categories:
+data$W1 <- ifelse(data$W1 < quantile(data$W1)[2], 1,
+  ifelse(data$W1 < quantile(data$W1)[3], 2, 3)
+)
+
+node_list <- list(
+  W = c("W3", "W4", "W2"),
+  A = c("W1", "A"),
+  Y = "Y"
+)
+```
+
+```{r}
+# initialize a tmle specification
+tmle_spec <- tmle3_mopttx_vim(
+  V = c("W2"),
+  type = "blip2",
+  learners = learner_list,
+  contrast = "multiplicative",
+  maximize = FALSE,
+  method = "SL",
+  complex = TRUE,
+  realistic = FALSE
+)
+```
+
+```{r}
+vim_results <- tmle3_vim(tmle_spec, data, node_list, learner_list,
+  adjust_for_other_A = TRUE
+)
+print(vim_results)
+```
+
+```{r}
+
+```
+

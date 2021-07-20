@@ -1,0 +1,10 @@
+pandoc: '2.5'
+pkgdown: 1.6.1
+pkgdown_sha: ~
+articles:
+  intro_medoutcon: intro_medoutcon.html
+last_built: 2021-05-04T06:21Z
+urls:
+  reference: https://code.nimahejazi.org/medoutcon/reference
+  article: https://code.nimahejazi.org/medoutcon/articles
+

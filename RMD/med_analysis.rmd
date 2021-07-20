@@ -1,0 +1,107 @@
+---
+title: "LMTP"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+myData <- read.csv('http://static.lib.virginia.edu/statlab/materials/data/mediationData.csv')
+head(myData)
+```
+
+```{r}
+model.0 <- lm(Y ~ X, myData)
+summary(model.0)
+```
+
+```{r}
+model.M <- lm(M ~ X, myData)
+summary(model.M)
+```
+
+```{r}
+model.Y <- lm(Y ~ X + M, myData)
+summary(model.Y)
+```
+
+```{r}
+library(mediation)
+
+results <- mediate(model.M, model.Y, treat = 'X', mediator = 'M',
+                   boot = TRUE, sims = 500)
+summary(results)
+```
+
+```{r}
+model.M <- lm(M ~ X, myData)
+model.Y <- lm(Y ~ X + M, myData)
+results <- mediate(model.M, model.Y, treat = 'X', mediator = 'M',
+                   boot = TRUE, sims = 500)
+summary(results)
+```
+
+```{r}
+library(tidyverse)
+
+currentDataset <- read_csv("https://statsnotebook.io/blog/data_management/example_data/substance.csv")
+head(currentDataset)
+```
+
+```{r}
+currentDataset$fam_int_1 = NA
+currentDataset$fam_int_1[currentDataset$fam_int == "1"] <- 1
+currentDataset$fam_int_1[currentDataset$fam_int == "0"] <- 0
+head(currentDataset)
+```
+
+```{r}
+library(mice)
+
+formulas <- make.formulas(currentDataset)
+formulas$gender =gender ~ conflict + sub_disorder + fam_int_1 + dev_peer + sub_exp
+formulas$conflict =conflict ~ gender + sub_disorder + fam_int_1 + dev_peer + sub_exp
+formulas$sub_disorder =sub_disorder ~ gender + conflict + fam_int_1 + dev_peer + sub_exp
+formulas$fam_int_1 =fam_int_1 ~ gender + conflict + sub_disorder + dev_peer + sub_exp
+formulas$dev_peer =dev_peer ~ gender + conflict + sub_disorder + fam_int_1 + sub_exp
+formulas$sub_exp =sub_exp ~ gender + conflict + sub_disorder + fam_int_1 + dev_peer
+```
+
+```{r}
+meth <- make.method(currentDataset)
+```
+
+```{r}
+imputedDataset <- parlmice(currentDataset,
+    method = meth,
+    formulas = formulas,
+    m = 20,
+    n.core = 1,
+    n.imp.core = 20
+)
+```
+
+```{r}
+plot(imputedDataset)
+currentDataset <- complete(imputedDataset, action = "long", include = TRUE)
+```
+
+```{r}
+med_res <- intmed::mediate(y = "sub_disorder",
+  med = c("dev_peer" ,"sub_exp"),
+  treat = "fam_int_1",
+  c = c("gender" ,"conflict"),
+  ymodel = "logistic regression",
+  mmodel = c("logistic regression" ,"logistic regression"),
+  treat_lv = 1, control_lv = 0, incint = FALSE, inc_mmint = FALSE,
+  conf.level = 0.95,
+  data = currentDataset, sim = 1000, digits = 3,
+  HTML_report = FALSE, complete_analysis = FALSE,
+  imputed_data = TRUE
+)
+
+med_res
+```
+

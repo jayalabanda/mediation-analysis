@@ -1,0 +1,137 @@
+---
+title: "stremr"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(magrittr)
+library(data.table)
+library(stremr)
+```
+```{r}
+data(OdataNoCENS)
+datDT <- as.data.table(OdataNoCENS, key=c("ID", "t"))
+```
+
+```{r}
+datDT[, ("N.tminus1") := shift(get("N"), n = 1L, type = "lag", fill = 1L), by = ID]
+datDT[, ("TI.tminus1") := shift(get("TI"), n = 1L, type = "lag", fill = 1L), by = ID]
+```
+
+```{r}
+datDT[, ("TI.set1") := 1L]
+datDT[, ("TI.set0") := 0L]
+```
+
+```{r}
+OData <- importData(datDT, ID = "ID", t = "t", covars = c("highA1c", "lastNat1", "N.tminus1"),
+                    CENS = "C", TRT = "TI", OUTCOME = "Y.tplus1")
+```
+
+```{r}
+get_data(OData)[, ("TI.set0") := 1L]
+get_data(OData)[, ("TI.set0") := 0L]
+```
+
+```{r}
+get_data(OData)
+```
+
+```{r}
+gform_CENS <- "C ~ highA1c + lastNat1"
+gform_TRT <- "TI ~ CVD + highA1c + N.tminus1"
+```
+
+```{r}
+stratify_CENS <- list(C=c("t < 16", "t == 16"))
+```
+
+```{r}
+OData <- fitPropensity(OData,
+                       gform_CENS = gform_CENS,
+                       gform_TRT = gform_TRT,
+                       stratify_CENS = stratify_CENS)
+```
+
+```{r}
+AKME.St.1 <- getIPWeights(OData, intervened_TRT = "TI.set1") %>%
+             survNPMSM(OData) %$%
+             estimates
+```
+
+```{r}
+head(AKME.St.1[], 2)
+```
+
+```{r}
+IPW.St.1 <- getIPWeights(OData, intervened_TRT = "TI.set1") %>%
+            directIPW(OData) %$%
+            estimates
+```
+
+```{r}
+head(IPW.St.1[], 2)
+```
+
+```{r}
+wts.DT.1 <- getIPWeights(OData = OData, intervened_TRT = "TI.set1", rule_name = "TI1")
+wts.DT.0 <- getIPWeights(OData = OData, intervened_TRT = "TI.set0", rule_name = "TI0")
+survMSM_res <- survMSM(list(wts.DT.1, wts.DT.0), OData, tbreaks = c(1:8,12,16) - 1, )
+```
+
+```{r}
+head(survMSM_res[["TI0"]][["estimates"]], 2)
+```
+
+```{r}
+head(survMSM_res[["TI1"]][["estimates"]], 2)
+```
+
+```{r}
+tvals <- c(0:10)
+Qforms <- rep.int("Qkplus1 ~ CVD + highA1c + N + lastNat1 + TI + TI.tminus1",
+                  (max(tvals) + 1))
+```
+
+```{r}
+gcomp_est <- fit_GCOMP(OData, tvals = tvals, intervened_TRT = "TI.set1", Qforms = Qforms)
+```
+
+```{r}
+head(gcomp_est$estimates[], 2)
+```
+
+```{r}
+tmle_est <- fit_TMLE(OData, tvals = tvals, intervened_TRT = "TI.set1", Qforms = Qforms)
+```
+
+```{r}
+head(tmle_est$estimates[], 2)
+```
+
+```{r}
+library("sl3")
+lrn_xgb <- Lrnr_xgboost$new(nrounds = 5)
+lrn_glm <- Lrnr_glm_fast$new()
+lrn_glm2 <- Lrnr_glm_fast$new(covariates = c("CVD"))
+lrn_glmnet <- Lrnr_glmnet$new(nlambda = 5, family = "binomial")
+## Stack the above candidates:
+lrn_stack <- Stack$new(lrn_xgb, lrn_glm, lrn_glm2, lrn_glmnet)
+```
+
+```{r}
+lrn_sl <- Lrnr_sl$new(learners = lrn_stack, metalearner = Lrnr_solnp$new())
+```
+
+```{r}
+OData <- fitPropensity(OData,
+                       gform_CENS = gform_CENS,
+                       gform_TRT = gform_TRT,
+                       models_TRT = lrn_sl,
+                       stratify_CENS = stratify_CENS)
+```
+
