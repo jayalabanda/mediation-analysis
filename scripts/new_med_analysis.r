@@ -745,23 +745,23 @@ cov_sie_tmle <- mean(estimates_sie_moc$cov_tmle)
 # Summarize results
 results_sde <- data.frame(
   ## One-step
-  sde_estimate_os = sde_estimate_os, # 0.06318869
-  bias_os = bias_sde_os, # 0.0006045878
-  variance_os = var_sde_os, # 0.0002749938
-  STD.os = se_sde_os, # 0.01658294
-  std.bias.os = sd_bias_sde_os, # 0.03645843
-  MSE_os = mse_sde_os, # 0.0002753593
-  av.est.std.os = av_estimated_se_sde_os, # 0.01535572
-  coverage_os = cov_sde_os, # 0.94
+  estimate_os = sde_estimate_os, # 0.06209866
+  bias_os = bias_sde_os, # -0.000485435
+  variance_os = var_sde_os, # 0.0002692855
+  STD_os = se_sde_os, # 0.01640992
+  std_bias_os = sd_bias_sde_os, # -0.0295818
+  MSE_os = mse_sde_os, # 0.0002695211
+  av_est_std_os = av_estimated_se_sde_os, # 0.0153701
+  coverage_os = cov_sde_os, # 0.935
   ## TMLE
-  sde_estimate_tmle = sde_estimate_tmle, # 0.05342129
-  bias_tmle = bias_sde_tmle, # -0.00916281
-  variance_tmle = var_sde_tmle, # 0.0003907845
-  STD.tmle = se_sde_tmle, # 0.01976827
-  std.bias.tmle = sd_bias_sde_tmle, # -0.463511
-  MSE_tmle = mse_sde_tmle, # 0.0004747416
-  av.est.std.tmle = av_estimated_se_sde_tmle, # 0.01535526
-  coverage_tmle = cov_sde_tmle, # 0.8
+  estimate_tmle = sde_estimate_tmle, # 0.0525999
+  bias_tmle = bias_sde_tmle, # -0.009984198
+  variance_tmle = var_sde_tmle, # 0.0003756425
+  STD_tmle = se_sde_tmle, # 0.0193815
+  std_bias_tmle = sd_bias_sde_tmle, # -0.5151406
+  MSE_tmle = mse_sde_tmle, # 0.0004753267
+  av_est_std_tmle = av_estimated_se_sde_tmle, # 0.01535946
+  coverage_tmle = cov_sde_tmle, # 0.85
 )
 
 results_sde
@@ -773,23 +773,23 @@ write.csv(
 
 results_sie <- data.frame(
   ## One-step
-  sie_estimate_os = sie_estimate_os, # 0.01132281
-  bias_os = bias_sie_os, # 0.001476947
-  variance_os = var_sie_os, # 2.098024e-05
-  STD.os = se_sie_os, # 0.004580419
-  std.bias.os = sd_bias_sie_os, # 0.3224479
-  MSE_os = mse_sie_os, # 2.316161e-05
-  av.est.std.os = av_estimated_se_sie_os, # 0.004529507
+  estimate_os = sie_estimate_os, # 0.01086758
+  bias_os = bias_sie_os, # 0.001021716
+  variance_os = var_sie_os, # 1.868794e-05
+  STD_os = se_sie_os, # 0.004322954
+  std_bias_os = sd_bias_sie_os, # 0.2363468
+  MSE_os = mse_sie_os, # 1.973184e-05
+  av_est_std.os = av_estimated_se_sie_os, # 0.004543823
   coverage_os = cov_sie_os, # 0.96
   ## TMLE
-  sie_estimate_tmle = sie_estimate_tmle, # 0.01098761
-  bias_tmle = bias_sie_tmle, # 0.001141745
-  variance_tmle = var_sie_tmle, # 1.798284e-05
-  STD.tmle = se_sie_tmle, # 0.004240617
-  std.bias.tmle = sd_bias_sie_tmle, # 0.2692403
-  MSE_tmle = mse_sie_tmle, # 1.928642e-05
-  av.est.std.tmle = av_estimated_se_sie_tmle, # 0.004371429
-  coverage_tmle = cov_sie_tmle, # 0.95
+  estimate_tmle = sie_estimate_tmle, # 0.01091418
+  bias_tmle = bias_sie_tmle, # 0.001068317
+  variance_tmle = var_sie_tmle, # 1.637269e-05
+  STD_tmle = se_sie_tmle, # 0.004046318
+  std_bias_tmle = sd_bias_sie_tmle, # 0.2640221
+  MSE_tmle = mse_sie_tmle, # 1.751399e-05
+  av_est_std_tmle = av_estimated_se_sie_tmle, # 0.004375105
+  coverage_tmle = cov_sie_tmle, # 0.965
 )
 
 results_sie
