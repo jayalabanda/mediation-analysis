@@ -433,8 +433,9 @@ library(medoutcon)
 library(tidyverse)
 library(data.table)
 library(hal9001)
+library(sl3)
 
-file_path <- "../../Data/"
+file_path <- "../Data/"
 data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
 data <- subset(data, select = -c(Y_qol)) # remove Y_qol
 head(data)
@@ -527,7 +528,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "direct",
-    estimator = "onestep"
+    estimator = "onestep",
+    u_learners = sl3::Lrnr_glmnet$new(),
+    v_learners = sl3::Lrnr_glmnet$new()
   )
 
   dir_tmle <- medoutcon(
@@ -537,7 +540,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "direct",
-    estimator = "tmle"
+    estimator = "tmle",
+    u_learners = sl3::Lrnr_glmnet$new(),
+    v_learners = sl3::Lrnr_glmnet$new()
   )
 
   ind_os <- medoutcon(
@@ -547,7 +552,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "indirect",
-    estimator = "onestep"
+    estimator = "onestep",
+    u_learners = sl3::Lrnr_glmnet$new(),
+    v_learners = sl3::Lrnr_glmnet$new()
   )
 
   ind_tmle <- medoutcon(
@@ -557,7 +564,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "indirect",
-    estimator = "tmle"
+    estimator = "tmle",
+    u_learners = sl3::Lrnr_glmnet$new(),
+    v_learners = sl3::Lrnr_glmnet$new()
   )
 
   return(list(
@@ -572,7 +581,7 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
 n_sim <- 200
 true_sde <- 0.0625841
 true_sie <- 0.009845864
-sim_data_path <- "../../Data/simulations/"
+sim_data_path <- "../Data/simulations/"
 
 # Direct effect
 estimates_sde_moc <- matrix(NA, ncol = 6, nrow = n_sim)
