@@ -458,7 +458,9 @@ os_de <- medoutcon(
   M = data[, m_names],
   Y = data$Y,
   effect = "direct",
-  estimator = "onestep"
+  estimator = "onestep",
+  u_learners = sl3::Lrnr_glm_fast$new(),
+  v_learners = sl3::Lrnr_glm_fast$new()
 )
 
 os_de
@@ -475,7 +477,9 @@ tmle_de <- medoutcon(
   M = data[, m_names],
   Y = data$Y,
   effect = "direct",
-  estimator = "tmle"
+  estimator = "tmle",
+  u_learners = sl3::Lrnr_glm_fast$new(),
+  v_learners = sl3::Lrnr_glm_fast$new()
 )
 
 tmle_de
@@ -492,7 +496,9 @@ os_ie <- medoutcon(
   M = data[, m_names],
   Y = data$Y,
   effect = "indirect",
-  estimator = "onestep"
+  estimator = "onestep",
+  u_learners = sl3::Lrnr_glm_fast$new(),
+  v_learners = sl3::Lrnr_glm_fast$new()
 )
 
 os_ie
@@ -509,7 +515,9 @@ tmle_ie <- medoutcon(
   M = data[, m_names],
   Y = data$Y,
   effect = "indirect",
-  estimator = "tmle"
+  estimator = "tmle",
+  u_learners = sl3::Lrnr_glm_fast$new(),
+  v_learners = sl3::Lrnr_glm_fast$new()
 )
 
 tmle_ie
@@ -529,8 +537,8 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     Y = data$Y,
     effect = "direct",
     estimator = "onestep",
-    u_learners = sl3::Lrnr_glmnet$new(),
-    v_learners = sl3::Lrnr_glmnet$new()
+    u_learners = sl3::Lrnr_glm_fast$new(),
+    v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   dir_tmle <- medoutcon(
@@ -541,8 +549,8 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     Y = data$Y,
     effect = "direct",
     estimator = "tmle",
-    u_learners = sl3::Lrnr_glmnet$new(),
-    v_learners = sl3::Lrnr_glmnet$new()
+    u_learners = sl3::Lrnr_glm_fast$new(),
+    v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   ind_os <- medoutcon(
@@ -553,8 +561,8 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     Y = data$Y,
     effect = "indirect",
     estimator = "onestep",
-    u_learners = sl3::Lrnr_glmnet$new(),
-    v_learners = sl3::Lrnr_glmnet$new()
+    u_learners = sl3::Lrnr_glm_fast$new(),
+    v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   ind_tmle <- medoutcon(
@@ -565,8 +573,8 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     Y = data$Y,
     effect = "indirect",
     estimator = "tmle",
-    u_learners = sl3::Lrnr_glmnet$new(),
-    v_learners = sl3::Lrnr_glmnet$new()
+    u_learners = sl3::Lrnr_glm_fast$new(),
+    v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   return(list(

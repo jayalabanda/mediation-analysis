@@ -35,33 +35,33 @@ plot.dag(exposures = c("A"), outcomes = c("Y"))
 #####################################################
 
 # Manual computation
-estimate.manual <- function(data, ymodel, mmodel, A, M) {
+estimate.manual <- function(data, ymodel, mmodel, l_a_model, A, M) {
   tempdat <- data
-  colnames(tempdat)[grep(A), colnames(tempdat)] <- "a"
-  colnames(tempdat)[grep(M), colnames(tempdat)] <- "m"
+  colnames(tempdat)[grep(A, colnames(tempdat))] <- "a"
+  colnames(tempdat)[grep(M, colnames(tempdat))] <- "m"
 
   g_M_model <- glm(formula = mmodel, family = "binomial", data = tempdat)
 
   # Exposition à A1
-  data.A1 <- tempdat
-  data.A1$a <- 1
-  g_M_1 <- predict(g_M_model, newdata = data.A1, type = "response")
+  data_A1 <- tempdat
+  data_A1$a <- 1
+  g_M_1 <- predict(g_M_model, newdata = data_A1, type = "response")
 
   # Exposition à A0
-  data.A0 <- tempdat
-  data.A0$a <- 0
-  g_M_0 <- predict(g_M_model, newdata = data.A0, type = "response")
+  data_A0 <- tempdat
+  data_A0$a <- 0
+  g_M_0 <- predict(g_M_model, newdata = data_A0, type = "response")
 
   # Q function
   Q_model <- glm(ymodel, family = "binomial", data = tempdat)
 
   # do(M = 0) ou do(M = 1)
-  data.M0 <- data.M1 <- tempdat
-  data.M1$m <- 1
-  data.M0$m <- 0
+  data_M0 <- data_M1 <- tempdat
+  data_M1$m <- 1
+  data_M0$m <- 0
 
-  Q_pred_M1 <- predict(Q_model, newdata = data.M1, type = "response")
-  Q_pred_M0 <- predict(Q_model, newdata = data.M0, type = "response")
+  Q_pred_M1 <- predict(Q_model, newdata = data_M1, type = "response")
+  Q_pred_M0 <- predict(Q_model, newdata = data_M0, type = "response")
 
   tempdat$Q_gamma_A1 <- Q_pred_M1 * g_M_1 + Q_pred_M0 * (1 - g_M_1)
   tempdat$Q_gamma_A0 <- Q_pred_M1 * g_M_0 + Q_pred_M0 * (1 - g_M_0)
@@ -75,9 +75,9 @@ estimate.manual <- function(data, ymodel, mmodel, A, M) {
     family = "quasibinomial", data = tempdat
   )
 
-  Q_pred_A1_gamma_A1 <- predict(Q_model_A1, newdata = data.A1, type = "response")
-  Q_pred_A1_gamma_A0 <- predict(Q_model_A0, newdata = data.A1, type = "response")
-  Q_pred_A0_gamma_A0 <- predict(Q_model_A0, newdata = data.A0, type = "response")
+  Q_pred_A1_gamma_A1 <- predict(Q_model_A1, newdata = data_A1, type = "response")
+  Q_pred_A1_gamma_A0 <- predict(Q_model_A0, newdata = data_A1, type = "response")
+  Q_pred_A0_gamma_A0 <- predict(Q_model_A0, newdata = data_A0, type = "response")
 
   Psi_mrNDE <- mean(Q_pred_A1_gamma_A0) - mean(Q_pred_A0_gamma_A0)
   Psi_mrNIE <- mean(Q_pred_A1_gamma_A1) - mean(Q_pred_A1_gamma_A0)
@@ -89,18 +89,27 @@ estimate.manual <- function(data, ymodel, mmodel, A, M) {
 }
 
 # Retrieve simulated data
-file_path <- "../../Data/"
+file_path <- "../Data/"
 data <- read.csv(paste(file_path, "data_sim.csv", sep = ""))
 head(data)
 
+bin_to_quant <- function(x) {
+  x[x == 0] <- runif(1, min = 0, max = 0.5)
+  x[x == 1] <- runif(1, min = 0.5, max = 1)
+  return(x)
+}
+
+data$L1 <- sapply(data$L1, bin_to_quant, simplify = "array")
+
 # Create models
-ymodel <- "Y_death ~ L0_male + L0_parent_low_educ_lv + A0_ace + L1 + M_smoking"
-mmodel <- "M_smoking ~ L0_male + L0_parent_low_educ_lv + A0_ace"
+ymodel <- "Y_death ~ L0_male + L0_parent_low_educ_lv + a + L1 + m"
+mmodel <- "m ~ L0_male + L0_parent_low_educ_lv + a"
+l_a_model <- "L0_male + L0_parent_low_educ_lv + a"
 
 # Results
 res <- estimate.manual(
   data = data, ymodel = ymodel, mmodel = mmodel,
-  A = "A0_ace", M = "M_smoking"
+  l_a_model = l_a_model, A = "A0_ace", M = "M_smoking"
 )
 
 Psi_mrNDE <- res$Psi_mrNDE
@@ -338,7 +347,7 @@ medtmle <- function(data, covars, A, Z, M, outcome, amodel, zmodel, mmodel, ymod
   QA1g0.fit <- glm(
     formula = paste("QA1gmA0", qmodel, sep = "~"), # zmodel ?
     family = "quasibinomial",
-    data = tmpdat[tmpdat$a == 1, ]
+    data = tmpdat[tmpdat$a == 1,]
   )
   QA1g0 <- predict(QA1g0.fit, newdata = tmpdat, type = "response")
 
@@ -369,7 +378,7 @@ medtmle <- function(data, covars, A, Z, M, outcome, amodel, zmodel, mmodel, ymod
   QA0g0.fit <- glm(
     formula = paste("QA0gmA0", qmodel, sep = "~"),
     family = "quasibinomial",
-    data = tmpdat[tmpdat$a == 0, ]
+    data = tmpdat[tmpdat$a == 0,]
   )
   QA0g0 <- predict(QA0g0.fit, newdata = tmpdat, type = "response")
 
@@ -400,7 +409,7 @@ medtmle <- function(data, covars, A, Z, M, outcome, amodel, zmodel, mmodel, ymod
   QA1g1.fit <- glm(
     formula = paste("QA1gmA1", qmodel, sep = "~"),
     family = "quasibinomial",
-    data = tmpdat[tmpdat$a == 1, ]
+    data = tmpdat[tmpdat$a == 1,]
   )
   QA1g1 <- predict(QA1g1.fit, newdata = tmpdat, type = "response")
 

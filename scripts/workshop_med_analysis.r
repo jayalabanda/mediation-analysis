@@ -77,7 +77,7 @@ direct <- (pred_y1_a1 - y) * pscore_delta +
 mean(direct)
 
 # Our data
-file_path <- "../../Data/"
+file_path <- "../Data/"
 data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
 data <- subset(data, select = -c(Y_qol)) # remove Y_qol
 head(data)
@@ -89,6 +89,14 @@ colnames(data)[4] <- "z"
 colnames(data)[5] <- "m"
 colnames(data)[6] <- "y"
 head(data)
+
+# function to convert
+# binary vector to quantitative
+bin_to_quant <- function(x) {
+  x[x == 0] <- runif(1, min = 0, max = 0.5)
+  x[x == 1] <- runif(1, min = 0.5, max = 1)
+  return(x)
+}
 
 w1 <- data$w1
 w2 <- data$w2
@@ -104,12 +112,13 @@ y <- data$y
 # Int. indirect effect : E[Y_{1, G_1} - Y_{1, G_0}]
 # Int. direct effect : E[Y_{1, G_0} - Y_{0, G_0}]
 
-workshop_estimates <- function(data, covariates) {
+workshop_estimates <- function(data) {
   w1 <- data$w1
   w2 <- data$w2
   a <- data$a
   z <- data$z
   m <- data$m
+  # m <- # lapply(data$m, bin_to_quant)
   y <- data$y
 
   # (a, a') = (1, 0)
@@ -181,12 +190,16 @@ workshop_estimates <- function(data, covariates) {
   ))
 }
 
+# Results
+res <- workshop_estimates(data)
+res
+
 ## Bootstrap
 n_sim <- 1000
 n_boot <- 500
 true_sde <- 0.0625841
 true_sie <- 0.009845864
-sim_data_path <- "../../Data/simulations/"
+sim_data_path <- "../Data/simulations/"
 
 # Direct effect
 estimates_sde_ws <- matrix(NA, ncol = 3, nrow = n_sim)
@@ -217,11 +230,7 @@ for (i in 1:n_sim) {
   colnames(data_sim)[5] <- "m"
   colnames(data_sim)[6] <- "y"
 
-  covariates <- c("l0_male", "l0_parent_low_educ_lv")
-  results <- workshop_estimates(
-    data_sim,
-    covariates
-  )
+  results <- workshop_estimates(data_sim)
 
   estimates_sde_ws <- read.csv(
     paste(file_path, "estimates_sde_ws.csv", sep = "")
@@ -241,19 +250,16 @@ for (i in 1:n_sim) {
 
   for (b in 1:n_boot) {
     idx <- sample(seq(1, nrow(data_sim)), replace = TRUE)
-    boot_data <- data_sim[idx, ]
+    boot_data <- data_sim[idx,]
 
     if (b %% 100 == 0 & b != 0) {
       print(paste0("Bootstrap number: ", b))
     }
 
-    ws_boot <- workshop_estimates(
-      boot_data,
-      covariates
-    )
+    ws_boot <- workshop_estimates(boot_data)
 
-    boot_sde_estimates[b, ] <- ws_boot$dir_effect
-    boot_sie_estimates[b, ] <- ws_boot$ind_effect
+    boot_sde_estimates[b,] <- ws_boot$dir_effect
+    boot_sie_estimates[b,] <- ws_boot$ind_effect
   }
 
   boot_sde_est <- boot_sde_estimates$boot_sde_estimate
@@ -305,10 +311,10 @@ bias_sie <- mean(estimates_sie_ws$sie) - true_sie
 # variance & standard error
 n_rows <- nrow(data_sim)
 var_sde <- mean(
-  (estimates_sde_ws$sde - mean(estimates_sde_ws$sde))^2
+  (estimates_sde_ws$sde - mean(estimates_sde_ws$sde)) ^ 2
 ) * n_rows / (n_rows - 1)
 var_sie <- mean(
-  (estimates_sie_ws$sie - mean(estimates_sie_ws$sie))^2
+  (estimates_sie_ws$sie - mean(estimates_sie_ws$sie)) ^ 2
 ) * n_rows / (n_rows - 1)
 
 se_sde <- sqrt(var_sde)
@@ -319,12 +325,12 @@ sd_bias_sde <- bias_sde / se_sde
 sd_bias_sie <- bias_sie / se_sie
 
 # MSE
-mse_sde <- var_sde + bias_sde^2
-mse_sie <- var_sie + bias_sie^2
+mse_sde <- var_sde + bias_sde ^ 2
+mse_sie <- var_sie + bias_sie ^ 2
 
 # Average estimated standard error
-av_estimated_se_sde <- sqrt(mean(estimates_sde_ws$sd^2))
-av_estimated_se_sie <- sqrt(mean(estimates_sie_ws$sd^2))
+av_estimated_se_sde <- sqrt(mean(estimates_sde_ws$sd ^ 2))
+av_estimated_se_sie <- sqrt(mean(estimates_sie_ws$sd ^ 2))
 
 # Coverage
 cov_sde <- mean(estimates_sde_ws$cov)
@@ -366,3 +372,6 @@ write.csv(
   paste(file_path, "results_sie_ws.csv", sep = ""),
   row.names = FALSE
 )
+
+# Pas de différence remarquable entre les deux méthodes
+# que ce soit M binaire ou M continu
