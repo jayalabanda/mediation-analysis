@@ -585,6 +585,11 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
   ))
 }
 
+# Define expit function
+expit <- function(x) {
+  return(1 / (1 + exp(-x)))
+}
+
 ## Multiple simulaitions
 n_sim <- 200
 true_sde <- 0.0625841
@@ -624,8 +629,20 @@ for (i in 1:n_sim) {
   colnames(data_sim)[2] <- "W_2"
   colnames(data_sim)[3] <- "A"
   colnames(data_sim)[4] <- "Z"
-  colnames(data_sim)[5] <- "M"
+  colnames(data_sim)[5] <- "M_1"
   colnames(data_sim)[6] <- "Y"
+
+  data_sim[, "M_2"] <- rbinom(
+    nrow(data_sim), 1,
+    expit(data_sim$W_1 + data_sim$W_2 + data_sim$A - data_sim$Z +
+      data_sim$A * data_sim$Z - 0.3 * data_sim$A * data_sim$W_2)
+  )
+
+  data_sim[, "M_3"] <- rbinom(
+    nrow(data_sim), 1,
+    expit(data_sim$W_1 - data_sim$W_2 + 0.2 * data_sim$A + data_sim$Z +
+      0.1 * data_sim$A * data_sim$Z - 0.4 * data_sim$A * data_sim$W_2)
+  )
 
   w_names <- str_subset(colnames(data_sim), "W")
   m_names <- str_subset(colnames(data_sim), "M")
@@ -815,3 +832,11 @@ write.csv(
   paste(file_path, "results_sie_moc.csv", sep = ""),
   row.names = FALSE
 )
+
+# Utiliser Lrnr glm fast dans u_learners et v_learners accélère le calcul
+# Par contre utiliser Lrnr glmnet est beaucoup plus lent (comparable avec hal)
+
+# Plus on ajoute de médiateurs, plus les résultats sont variables
+# Biais, MSE et variance plus élevés.
+# Pas possible de faire plus de variables de confusion avec medoutcon.
+# Pas de différence dans le temps d'exécution.

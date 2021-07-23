@@ -99,7 +99,7 @@ bin_to_quant <- function(x) {
   return(x)
 }
 
-data$L1 <- sapply(data$L1, bin_to_quant, simplify = "array")
+# data$L1 <- # sapply(data$L1, bin_to_quant, simplify = "array")
 
 # Create models
 ymodel <- "Y_death ~ L0_male + L0_parent_low_educ_lv + a + L1 + m"
@@ -347,7 +347,7 @@ medtmle <- function(data, covars, A, Z, M, outcome, amodel, zmodel, mmodel, ymod
   QA1g0.fit <- glm(
     formula = paste("QA1gmA0", qmodel, sep = "~"), # zmodel ?
     family = "quasibinomial",
-    data = tmpdat[tmpdat$a == 1,]
+    data = tmpdat[tmpdat$a == 1, ]
   )
   QA1g0 <- predict(QA1g0.fit, newdata = tmpdat, type = "response")
 
@@ -378,7 +378,7 @@ medtmle <- function(data, covars, A, Z, M, outcome, amodel, zmodel, mmodel, ymod
   QA0g0.fit <- glm(
     formula = paste("QA0gmA0", qmodel, sep = "~"),
     family = "quasibinomial",
-    data = tmpdat[tmpdat$a == 0,]
+    data = tmpdat[tmpdat$a == 0, ]
   )
   QA0g0 <- predict(QA0g0.fit, newdata = tmpdat, type = "response")
 
@@ -409,7 +409,7 @@ medtmle <- function(data, covars, A, Z, M, outcome, amodel, zmodel, mmodel, ymod
   QA1g1.fit <- glm(
     formula = paste("QA1gmA1", qmodel, sep = "~"),
     family = "quasibinomial",
-    data = tmpdat[tmpdat$a == 1,]
+    data = tmpdat[tmpdat$a == 1, ]
   )
   QA1g1 <- predict(QA1g1.fit, newdata = tmpdat, type = "response")
 
@@ -481,7 +481,7 @@ head(data)
 
 amodel <- "a ~ w1 + w2"
 zmodel <- "z ~ w1 + w2 + a"
-mmodel <- "m ~ w1 + w2 + a + z"
+mmodel <- "m ~ w1 + w2 + a"
 ymodel <- "y ~ w1 + w2 + a + z + m"
 qmodel <- "w1 + w2"
 

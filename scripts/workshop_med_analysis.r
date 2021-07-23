@@ -133,9 +133,9 @@ workshop_estimates <- function(data) {
   prob_z <- lm(z ~ a)
   pred_z <- predict(prob_z, newdata = data.frame(a = 1))
 
-  pseudo_out <- pred_a1z0 * (1 - pred_z) + pred_a1z1 * pred_z
+  pseudo_out_1_0 <- pred_a1z0 * (1 - pred_z) + pred_a1z1 * pred_z
 
-  fit_pseudo <- lm(pseudo_out ~ a + w1 + w2)
+  fit_pseudo <- lm(pseudo_out_1_0 ~ a + w1 + w2)
   pred_pseudo_1_0 <- predict(fit_pseudo,
     newdata = data.frame(a = 0, w1 = w1, w2 = w2)
   )
@@ -154,9 +154,9 @@ workshop_estimates <- function(data) {
   prob_z <- lm(z ~ a)
   pred_z <- predict(prob_z, newdata = data.frame(a = 1))
 
-  pseudo_out <- pred_a1z0 * (1 - pred_z) + pred_a1z1 * pred_z
+  pseudo_out_1_1 <- pred_a1z0 * (1 - pred_z) + pred_a1z1 * pred_z
 
-  fit_pseudo <- lm(pseudo_out ~ a + w1 + w2)
+  fit_pseudo <- lm(pseudo_out_1_1 ~ a + w1 + w2)
   pred_pseudo_1_1 <- predict(fit_pseudo,
     newdata = data.frame(a = 1, w1 = w1, w2 = w2)
   )
@@ -175,9 +175,9 @@ workshop_estimates <- function(data) {
   prob_z <- lm(z ~ a)
   pred_z <- predict(prob_z, newdata = data.frame(a = 0))
 
-  pseudo_out <- pred_a0z0 * (1 - pred_z) + pred_a0z1 * pred_z
+  pseudo_out_0_0 <- pred_a0z0 * (1 - pred_z) + pred_a0z1 * pred_z
 
-  fit_pseudo <- lm(pseudo_out ~ a + w1 + w2)
+  fit_pseudo <- lm(pseudo_out_0_0 ~ a + w1 + w2)
   pred_pseudo_0_0 <- predict(fit_pseudo,
     newdata = data.frame(a = 0, w1 = w1, w2 = w2)
   )
@@ -250,7 +250,7 @@ for (i in 1:n_sim) {
 
   for (b in 1:n_boot) {
     idx <- sample(seq(1, nrow(data_sim)), replace = TRUE)
-    boot_data <- data_sim[idx,]
+    boot_data <- data_sim[idx, ]
 
     if (b %% 100 == 0 & b != 0) {
       print(paste0("Bootstrap number: ", b))
@@ -258,8 +258,8 @@ for (i in 1:n_sim) {
 
     ws_boot <- workshop_estimates(boot_data)
 
-    boot_sde_estimates[b,] <- ws_boot$dir_effect
-    boot_sie_estimates[b,] <- ws_boot$ind_effect
+    boot_sde_estimates[b, ] <- ws_boot$dir_effect
+    boot_sie_estimates[b, ] <- ws_boot$ind_effect
   }
 
   boot_sde_est <- boot_sde_estimates$boot_sde_estimate
@@ -311,10 +311,10 @@ bias_sie <- mean(estimates_sie_ws$sie) - true_sie
 # variance & standard error
 n_rows <- nrow(data_sim)
 var_sde <- mean(
-  (estimates_sde_ws$sde - mean(estimates_sde_ws$sde)) ^ 2
+  (estimates_sde_ws$sde - mean(estimates_sde_ws$sde))^2
 ) * n_rows / (n_rows - 1)
 var_sie <- mean(
-  (estimates_sie_ws$sie - mean(estimates_sie_ws$sie)) ^ 2
+  (estimates_sie_ws$sie - mean(estimates_sie_ws$sie))^2
 ) * n_rows / (n_rows - 1)
 
 se_sde <- sqrt(var_sde)
@@ -325,12 +325,12 @@ sd_bias_sde <- bias_sde / se_sde
 sd_bias_sie <- bias_sie / se_sie
 
 # MSE
-mse_sde <- var_sde + bias_sde ^ 2
-mse_sie <- var_sie + bias_sie ^ 2
+mse_sde <- var_sde + bias_sde^2
+mse_sie <- var_sie + bias_sie^2
 
 # Average estimated standard error
-av_estimated_se_sde <- sqrt(mean(estimates_sde_ws$sd ^ 2))
-av_estimated_se_sie <- sqrt(mean(estimates_sie_ws$sd ^ 2))
+av_estimated_se_sde <- sqrt(mean(estimates_sde_ws$sd^2))
+av_estimated_se_sie <- sqrt(mean(estimates_sie_ws$sd^2))
 
 # Coverage
 cov_sde <- mean(estimates_sde_ws$cov)
@@ -374,4 +374,4 @@ write.csv(
 )
 
 # Pas de différence remarquable entre les deux méthodes
-# que ce soit M binaire ou M continu
+# que ce soit avec M binaire ou M continu
