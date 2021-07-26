@@ -82,14 +82,6 @@ data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
 data <- subset(data, select = -c(Y_qol)) # remove Y_qol
 head(data)
 
-colnames(data)[1] <- "w1"
-colnames(data)[2] <- "w2"
-colnames(data)[3] <- "a"
-colnames(data)[4] <- "z"
-colnames(data)[5] <- "m"
-colnames(data)[6] <- "y"
-head(data)
-
 # function to convert
 # binary vector to quantitative
 bin_to_quant <- function(x) {
@@ -97,13 +89,6 @@ bin_to_quant <- function(x) {
   x[x == 1] <- runif(1, min = 0.5, max = 1)
   return(x)
 }
-
-w1 <- data$w1
-w2 <- data$w2
-a <- data$a
-z <- data$z
-m <- data$m
-y <- data$y
 
 # Y_{1, G_0} : A = 1, M = G_0
 # Y_{0, G_0} : A = 0, M = G_0
@@ -118,7 +103,6 @@ workshop_estimates <- function(data) {
   a <- data$a
   z <- data$z
   m <- data$m
-  # m <- # lapply(data$m, bin_to_quant)
   y <- data$y
 
   # (a, a') = (1, 0)
@@ -195,7 +179,7 @@ res <- workshop_estimates(data)
 res
 
 ## Bootstrap
-n_sim <- 1000
+n_sim <- 500
 n_boot <- 500
 true_sde <- 0.0625841
 true_sie <- 0.009845864
@@ -223,12 +207,15 @@ for (i in 1:n_sim) {
   print(paste0("Simulation n°: ", i))
   data_sim <- read.csv(paste0(sim_data_path, "data_", i, ".csv", sep = ""))
   data_sim <- subset(data_sim, select = -c(y_qol))
+
   colnames(data_sim)[1] <- "w1"
   colnames(data_sim)[2] <- "w2"
   colnames(data_sim)[3] <- "a"
   colnames(data_sim)[4] <- "z"
   colnames(data_sim)[5] <- "m"
   colnames(data_sim)[6] <- "y"
+
+  # data_sim$m <- # sapply(data_sim$m, bin_to_quant, simplify = "array")
 
   results <- workshop_estimates(data_sim)
 
