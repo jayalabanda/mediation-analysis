@@ -999,3 +999,14 @@ boxplot(results.iptw)
 abline(h = 0)
 # intéressant, ici, sans problème de positivité, l'iptw fonctionne aussi bien que la g-computation
 
+file_path <- "../Data/"
+data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
+data <- subset(data, select = -c(Y_qol)) # remove Y_qol
+head(data)
+
+manip_res <- iptw.direct.indirect(data)
+manip_res
+# data[data$L0_male == 0 & data$L0_parent_low_educ_lv == 1 & data$A0_ace == 0 & 
+# data$L1 == 1 & data$M_smoking == 1 & data$Y_death == 1, ] = 0
+
+# En changeant certaines cases, les estimations varient mais restent assez proches de la valeur trouvée
