@@ -78,6 +78,11 @@ iptw_direct_indirect <- function(data) {
 
 res <- iptw_direct_indirect(data)
 res
+# $iptw_edn
+# [1] 0.1354538
+
+# $iptw_ein
+# [1] 0.02732996
 
 library(medoutcon)
 
@@ -94,6 +99,11 @@ ests_dir_os <- medoutcon(
 )
 
 ests_dir_os
+# Interventional Direct Effect
+# Estimator: onestep
+# Estimate: 0.126
+# Std. Error: 0.021
+# 95% CI: [0.085, 0.167]
 
 ests_dir_tmle <- medoutcon(
   W = data.frame(w_1, w_2, w_3),
@@ -108,6 +118,11 @@ ests_dir_tmle <- medoutcon(
 )
 
 ests_dir_tmle
+# Interventional Direct Effect
+# Estimator: tmle
+# Estimate: 0.059
+# Std. Error: 0.021
+# 95% CI: [0.019, 0.1]
 
 ests_ind_os <- medoutcon(
   W = data.frame(w_1, w_2, w_3),
@@ -122,6 +137,11 @@ ests_ind_os <- medoutcon(
 )
 
 ests_ind_os
+# Interventional Indirect Effect
+# Estimator: onestep
+# Estimate: 0.033
+# Std. Error: 0.012
+# 95% CI: [0.009, 0.056]
 
 ests_ind_tmle <- medoutcon(
   W = data.frame(w_1, w_2, w_3),
@@ -136,7 +156,23 @@ ests_ind_tmle <- medoutcon(
 )
 
 ests_ind_tmle
+# Interventional Indirect Effect
+# Estimator: tmle
+# Estimate: 0.028
+# Std. Error: 0.012
+# 95% CI: [0.005, 0.051]
 
 # les timations pour l'effet direct sont bonnes avec onestep, mais pas avec tmle
 # en revanche, les estimations de l'effet indirect sont bonnes avec tmle
 # et moins bonnes avec onestep
+
+file_path <- "../Data/"
+data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
+data <- subset(data, select = -c(Y_qol))
+head(data)
+
+res <- iptw_direct_indirect(data)
+res
+
+# TODO: corriger la fonction pour qu'elle s'adapte à ces données
+# TODO: comparer avec les résultats de medoutcon

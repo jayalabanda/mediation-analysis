@@ -76,14 +76,15 @@ direct <- (pred_y1_a1 - y) * pscore_delta +
 
 mean(direct)
 
+###############################################
+###############################################
 # Our data
 file_path <- "../Data/"
 data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
 data <- subset(data, select = -c(Y_qol)) # remove Y_qol
 head(data)
 
-# function to convert
-# binary vector to quantitative
+# function to convert binary vector to quantitative
 bin_to_quant <- function(x) {
   x[x == 0] <- runif(1, min = 0, max = 0.5)
   x[x == 1] <- runif(1, min = 0.5, max = 1)
@@ -174,9 +175,16 @@ workshop_estimates <- function(data) {
   ))
 }
 
+colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
+
 # Results
 res <- workshop_estimates(data)
 res
+# $ind_effect
+# [1] 0.008698918
+
+# $dir_effect
+# [1] 0.06637155
 
 ## Bootstrap
 n_sim <- 500
@@ -203,17 +211,13 @@ write.csv(
   row.names = FALSE
 )
 
+start_time <- Sys.time()
 for (i in 1:n_sim) {
   print(paste0("Simulation n°: ", i))
   data_sim <- read.csv(paste0(sim_data_path, "data_", i, ".csv", sep = ""))
   data_sim <- subset(data_sim, select = -c(y_qol))
 
-  colnames(data_sim)[1] <- "w1"
-  colnames(data_sim)[2] <- "w2"
-  colnames(data_sim)[3] <- "a"
-  colnames(data_sim)[4] <- "z"
-  colnames(data_sim)[5] <- "m"
-  colnames(data_sim)[6] <- "y"
+  colnames(data_sim) <- c("w1", "w2", "a", "z", "m", "y")
 
   # data_sim$m <- # sapply(data_sim$m, bin_to_quant, simplify = "array")
 
@@ -272,6 +276,8 @@ for (i in 1:n_sim) {
     row.names = FALSE
   )
 }
+end_time <- Sys.time()
+diff <- (end_time - start_time) / 60
 
 estimates_sde_ws <- read.csv(
   paste(file_path, "estimates_sde_ws.csv", sep = "")
@@ -361,4 +367,93 @@ write.csv(
 )
 
 # Pas de différence remarquable entre les deux méthodes
-# que ce soit avec M binaire ou M continu
+# que ce soit avec M binaire ou M continu sauf pour coverage
+
+# n_sim = 100, n_boot = 500
+# 38 minutes
+
+# Avec M continu
+#   sde_estimate        bias     variance       STD  std.bias         MSE
+# 1    0.0672141 0.004630001 0.0002363751 0.0153745 0.3011481 0.000257812
+#   av.est.std coverage
+# 1 0.01447884     0.91
+
+#   sie_estimate         bias     variance         STD  std.bias          MSE
+# 1  0.008088085 -0.001757779 2.249273e-06 0.001499758 -1.172042 5.339059e-06
+#    av.est.std coverage
+# 1 0.001528076     0.75
+
+
+# n_sim = 200, n_boot = 500
+# 72 minutes
+
+# Avec M continu
+#   sde_estimate        bias     variance        STD  std.bias          MSE
+# 1   0.06575144 0.003167339 0.0002426105 0.01557596 0.2033479 0.0002526426
+#   av.est.std coverage
+# 1 0.01439175    0.905
+
+#   sie_estimate         bias     variance         STD  std.bias          MSE
+# 1  0.008128275 -0.001717589 2.271654e-06 0.001507201 -1.139589 5.221766e-06
+#    av.est.std coverage
+# 1 0.001545938    0.735
+
+
+# n_sim = 500, n_boot = 500
+# 2h43 minutes
+
+# Avec M continu
+#   sde_estimate        bias     variance        STD  std.bias          MSE
+# 1   0.06663224 0.004048135 0.0002292207 0.01514004 0.2673795 0.0002456081
+#   av.est.std coverage
+# 1  0.0144567    0.924
+
+#   sie_estimate         bias     variance         STD std.bias          MSE
+# 1  0.008059886 -0.001785978 2.142665e-06 0.001463785 -1.22011 5.332382e-06
+#    av.est.std coverage
+# 1 0.001531339    0.758
+
+
+# n_sim = 100, n_boot = 500
+# 40 minutes
+
+# Avec M binaire
+#   sde_estimate        bias     variance        STD   std.bias          MSE
+# 1   0.06410054 0.001516443 0.0002363297 0.01537302 0.09864314 0.0002386293
+#   av.est.std coverage
+# 1 0.01453757     0.93
+
+#   sie_estimate        bias     variance         STD  std.bias          MSE
+# 1   0.01117657 0.001330706 3.260057e-06 0.001805563 0.7370037 5.030837e-06
+#    av.est.std coverage
+# 1 0.001836964     0.91
+
+
+# n_sim = 200, n_boot = 500
+# 66 minutes
+
+# Avec M binaire
+#   sde_estimate         bias     variance       STD    std.bias          MSE
+# 1   0.06262966 4.555886e-05 0.0002472692 0.0157248 0.002897262 0.0002472713
+#   av.est.std coverage
+# 1 0.01453101    0.945
+
+#   sie_estimate        bias     variance         STD  std.bias          MSE
+# 1   0.01122455 0.001378684 3.327952e-06 0.001824268 0.7557467 5.228722e-06
+#    av.est.std coverage
+# 1 0.001837334     0.91
+
+
+# n_sim = 500, n_boot = 500
+# 2h53 minutes
+
+# Avec M binaire
+#   sde_estimate         bias     variance        STD   std.bias          MSE
+# 1   0.06347579 0.0008916896 0.0002292661 0.01514153 0.05889031 0.0002300612
+#   av.est.std coverage
+# 1  0.0144751    0.938
+
+#   sie_estimate        bias     variance         STD  std.bias         MSE
+# 1   0.01118948 0.001343612 3.206816e-06 0.001790758 0.7503035 5.01211e-06
+#    av.est.std coverage
+# 1 0.001837824     0.91
