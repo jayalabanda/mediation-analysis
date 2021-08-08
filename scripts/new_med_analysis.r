@@ -1,6 +1,6 @@
-file_path <- "../../Data/"
+file_path <- "../Data/"
 data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
-data <- subset(data, select = -c(Y_qol)) # remove Y_qol
+data <- subset(data, select = -c(Y_qol))
 head(data)
 
 estimate_effects <- function(data, treatment, covariates, control, mediator,
@@ -213,11 +213,11 @@ estimate_effects <- function(data, treatment, covariates, control, mediator,
   return(results)
 }
 
-covariates <- c("l0_male", "l0_parent_low_educ_lv")
+covariates <- c("L0_male", "L0_parent_low_educ_lv")
 
 amodel <- "a ~ w1 + w2"
 zmodel <- "z ~ w1 + w2 + a"
-mmodel <- "m ~ w1 + w2 + a"
+mmodel <- "m ~ w1 + w2 + a + z"
 ymodel <- "y ~ w1 + w2 + a + z + m"
 qmodel <- "w1 + w2"
 
@@ -238,11 +238,12 @@ results
 # sie_ub  0.01575991
 
 ## Bootstrap
-n_sim <- 200
-n_boot <- 200
+n_sim <- 100
+n_boot <- 500
 true_sde <- 0.0625841
 true_sie <- 0.009845864
-sim_data_path <- "../../Data/simulations/"
+sim_data_path <- "../Data/simulations/"
+covariates <- c("l0_male", "l0_parent_low_educ_lv")
 
 # Direct effect
 estimates_sde_rud <- matrix(NA, ncol = 3, nrow = n_sim)
@@ -262,6 +263,7 @@ write.csv(
   row.names = FALSE
 )
 
+start_time <- Sys.time()
 for (i in 1:n_sim) {
   print(paste0("Simulation n°: ", i))
   data_sim <- read.csv(paste0(sim_data_path, "data_", i, ".csv", sep = ""))
@@ -346,6 +348,9 @@ for (i in 1:n_sim) {
     row.names = FALSE
   )
 }
+end_time <- Sys.time()
+diff <- end_time - start_time
+diff
 
 estimates_sde_rud <- read.csv(
   paste(file_path, "estimates_sde_rud.csv", sep = "")
@@ -428,6 +433,23 @@ write.csv(
   row.names = FALSE
 )
 
+# n_sim = 100, n_boot = 500
+# 4h
+
+# Avec M binaire
+#         bias     variance        STD  std.bias          MSE
+# 1 0.00396171 0.0002467648 0.01570875 0.2521977 0.0002624599
+# av.est.std coverage
+# 0.01472793     0.93
+
+#           bias     variance         STD   std.bias          MSE
+# 1 -0.001949152 9.766798e-06 0.003125188 -0.6236911 1.356599e-05
+# av.est.std coverage
+# 0.003218264    0.88
+
+
+################################################
+################################################
 ## Medoutcon
 library(medoutcon)
 library(tidyverse)
@@ -437,7 +459,7 @@ library(sl3)
 
 file_path <- "../Data/"
 data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
-data <- subset(data, select = -c(Y_qol)) # remove Y_qol
+data <- subset(data, select = -c(Y_qol))
 head(data)
 
 colnames(data)[1] <- "W_1"
@@ -536,9 +558,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "direct",
-    estimator = "onestep",
-    u_learners = sl3::Lrnr_glm_fast$new(),
-    v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "onestep"
+    # u_learners = sl3::Lrnr_glm_fast$new(),
+    # v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   dir_tmle <- medoutcon(
@@ -548,9 +570,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "direct",
-    estimator = "tmle",
-    u_learners = sl3::Lrnr_glm_fast$new(),
-    v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "tmle"
+    # u_learners = sl3::Lrnr_glm_fast$new(),
+    # v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   ind_os <- medoutcon(
@@ -560,9 +582,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "indirect",
-    estimator = "onestep",
-    u_learners = sl3::Lrnr_glm_fast$new(),
-    v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "onestep"
+    # u_learners = sl3::Lrnr_glm_fast$new(),
+    # v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   ind_tmle <- medoutcon(
@@ -572,9 +594,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "indirect",
-    estimator = "tmle",
-    u_learners = sl3::Lrnr_glm_fast$new(),
-    v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "tmle"
+    # u_learners = sl3::Lrnr_glm_fast$new(),
+    # v_learners = sl3::Lrnr_glm_fast$new()
   )
 
   return(list(
@@ -620,6 +642,7 @@ write.csv(
   row.names = FALSE
 )
 
+start_time <- Sys.time()
 for (i in 1:n_sim) {
   print(paste0("Simulation n°: ", i))
   data_sim <- read.csv(paste0(sim_data_path, "data_", i, ".csv", sep = ""))
@@ -632,17 +655,17 @@ for (i in 1:n_sim) {
   colnames(data_sim)[5] <- "M_1"
   colnames(data_sim)[6] <- "Y"
 
-  data_sim[, "M_2"] <- rbinom(
-    nrow(data_sim), 1,
-    expit(data_sim$W_1 + data_sim$W_2 + data_sim$A - data_sim$Z +
-      data_sim$A * data_sim$Z - 0.3 * data_sim$A * data_sim$W_2)
-  )
+  # data_sim[, "M_2"] <- rbinom(
+  #   nrow(data_sim), 1,
+  #   expit(data_sim$W_1 + data_sim$W_2 + data_sim$A - data_sim$Z +
+  #     data_sim$A * data_sim$Z - 0.3 * data_sim$A * data_sim$W_2)
+  # )
 
-  data_sim[, "M_3"] <- rbinom(
-    nrow(data_sim), 1,
-    expit(data_sim$W_1 - data_sim$W_2 + 0.2 * data_sim$A + data_sim$Z +
-      0.1 * data_sim$A * data_sim$Z - 0.4 * data_sim$A * data_sim$W_2)
-  )
+  # data_sim[, "M_3"] <- rbinom(
+  #   nrow(data_sim), 1,
+  #   expit(data_sim$W_1 - data_sim$W_2 + 0.2 * data_sim$A + data_sim$Z +
+  #     0.1 * data_sim$A * data_sim$Z - 0.4 * data_sim$A * data_sim$W_2)
+  # )
 
   w_names <- str_subset(colnames(data_sim), "W")
   m_names <- str_subset(colnames(data_sim), "M")
@@ -705,6 +728,8 @@ for (i in 1:n_sim) {
     row.names = FALSE
   )
 }
+end_time <- Sys.time()
+diff <- end_time - start_time
 
 estimates_sde_moc <- read.csv(
   paste(file_path, "estimates_sde_moc.csv", sep = "")
@@ -840,3 +865,167 @@ write.csv(
 # Biais, MSE et variance plus élevés.
 # Pas possible de faire plus de variables de confusion avec medoutcon.
 # Pas de différence dans le temps d'exécution.
+
+
+# avec n_sim = 100
+# 28 mins
+
+# Avec M binaire
+# sde_estimate_os 0.06327047
+# bias_sde_os 0.0006863745
+# var_sde_os 0.0002774893
+# se_sde_os 0.01665801
+# sd_bias_sde_os 0.04120387
+# mse_sde_os 0.0002779604
+# av_estimated_se_sde_os 0.01539581
+# cov_sde_os 0.94
+
+# sde_estimate_tmle 0.05303517
+# bias_sde_tmle -0.009548932
+# var_sde_tmle 0.0003930228
+# se_sde_tmle 0.0198248
+# sd_bias_sde_tmle -0.4816659
+# mse_sde_tmle 0.0004842049
+# av_estimated_se_sde_tmle 0.01537876
+# cov_sde_tmle 0.81
+
+# sie_estimate_os 0.01103531
+# bias_sie_os 0.001189445
+# var_sie_os 1.97582e-05
+# se_sie_os 0.00444502
+# sd_bias_sie_os 0.2675906
+# mse_sie_os 2.117298e-05
+# av_estimated_se_sie_os 0.004523985
+# cov_sie_os 0.99
+
+# sie_estimate_tmle 0.01092913
+# bias_sie_tmle 0.001083267
+# var_sie_tmle 1.649212e-05
+# se_sie_tmle 0.00406105
+# sd_bias_sie_tmle 0.2667455
+# mse_sie_tmle 1.766559e-05
+# av_estimated_se_sie_tmle 0.004350968
+# cov_sie_tmle 0.97
+
+
+# avec n_sim = 200
+# 66 minutes
+
+# Avec M binaire
+# sde_estimate_os 0.06213466
+# bias_sde_os -0.0004494406
+# var_sde_os 0.0002702406
+# se_sde_os 0.016439
+# sd_bias_sde_os -0.0273399
+# mse_sde_os 0.0002704426
+# av_estimated_se_sde_os 0.01540242
+# cov_sde_os 0.945
+
+# sde_estimate_tmle 0.05272032
+# bias_sde_tmle -0.00986378
+# var_sde_tmle 0.0003822515
+# se_sde_tmle 0.01955125
+# sd_bias_sde_tmle -0.5045088
+# mse_sde_tmle 0.0004795457
+# av_estimated_se_sde_tmle 0.01539767
+# cov_sde_tmle 0.835
+
+# sie_estimate_os 0.01057567
+# bias_sie_os 0.0007298047
+# var_sie_os 1.804866e-05
+# se_sie_os 0.004248371
+# sd_bias_sie_os 0.1717846
+# mse_sie_os 1.858127e-05
+# av_estimated_se_sie_os 0.004537201
+# cov_sie_os 0.965
+
+# sie_estimate_tmle 0.01065447
+# bias_sie_tmle 0.000808602
+# var_sie_tmle 1.664688e-05
+# se_sie_tmle 0.004080059
+# sd_bias_sie_tmle 0.1981839
+# mse_sie_tmle 1.730072e-05
+# av_estimated_se_sie_tmle 0.004373933
+# cov_sie_tmle 0.965
+
+
+# avec lrnr hal, n_sim = 100
+# 60 minutes
+
+# Avec M binaire
+# sde_estimate_os 0.06326683
+# bias_sde_os 0.0006827346
+# var_sde_os 0.0002709446
+# se_sde_os 0.01646039
+# sd_bias_sde_os 0.04147741
+# mse_sde_os 0.0002714107
+# av_estimated_se_sde_os 0.01535658
+# cov_sde_os 0.94
+
+# sde_estimate_tmle 0.05332462
+# bias_sde_tmle -0.00925948
+# var_sde_tmle 0.0003779163
+# se_sde_tmle 0.01944007
+# sd_bias_sde_tmle -0.476309
+# mse_sde_tmle 0.0004636542
+# av_estimated_se_sde_tmle 0.01534995
+# cov_sde_tmle 0.86
+
+# sie_estimate_os 0.01106628
+# bias_sie_os 0.001220411
+# var_sie_os 1.935189e-05
+# se_sie_os 0.004399078
+# sd_bias_sie_os 0.2774243
+# mse_sie_os 2.084129e-05
+# av_estimated_se_sie_os 0.004528392
+# cov_sie_os 0.91
+
+# sie_estimate_tmle 0.01099387
+# bias_sie_tmle 0.001148005
+# var_sie_tmle 1.739804e-05
+# se_sie_tmle 0.004171096
+# sd_bias_sie_tmle 0.2752287
+# mse_sie_tmle 1.871596e-05
+# av_estimated_se_sie_tmle 0.004365288
+# cov_sie_tmle 0.96
+
+
+# avec lrnr hal, n_sim = 200
+# 127 minutes
+
+# Avec M binaire
+# sde_estimate_os 0.06211439
+# bias_sde_os -0.000469712
+# var_sde_os 0.0002727083
+# se_sde_os 0.01651388
+# sd_bias_sde_os -0.02844346
+# mse_sde_os 0.000272929
+# av_estimated_se_sde_os 0.01537274
+# cov_sde_os 0.935
+
+# sde_estimate_tmle 0.05266297
+# bias_sde_tmle -0.009921131
+# var_sde_tmle 0.0003772731
+# se_sde_tmle 0.01942352
+# sd_bias_sde_tmle -0.5107792
+# mse_sde_tmle 0.000475702
+# av_estimated_se_sde_tmle 0.01536134
+# cov_sde_tmle 0.825
+
+# sie_estimate_os 0.01077314
+# bias_sie_os 0.0009272753
+# var_sie_os 1.741075e-05
+# se_sie_os 0.004172619
+# sd_bias_sie_os 0.2222286
+# mse_sie_os 1.827059e-05
+# av_estimated_se_sie_os 0.004543031
+# cov_sie_os 0.98
+
+# sie_estimate_tmle 0.01095812
+# bias_sie_tmle 0.00111226
+# var_sie_tmle 1.616048e-05
+# se_sie_tmle 0.00402001
+# sd_bias_sie_tmle 0.2766809
+# mse_sie_tmle 1.73976e-05
+# av_estimated_se_sie_tmle 0.004373798
+# cov_sie_tmle 0.97
