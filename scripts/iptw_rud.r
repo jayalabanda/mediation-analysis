@@ -3,7 +3,7 @@ expit <- function(x) {
   return(1 / (1 + exp(-x)))
 }
 
-set.seed(420)
+set.seed(1000)
 n <- 10000
 w_1 <- rbinom(n, 1, 0.6)
 w_2 <- rbinom(n, 1, 0.3)
@@ -16,12 +16,19 @@ y <- rbinom(n, 1, expit((a - z + m - a * z) / (w_1 + w_2 + w_3 + 1)))
 data <- data.frame(w_1, w_2, w_3, a, z, m, y)
 head(data)
 
-iptw_direct_indirect <- function(data) {
+iptw_direct_indirect <- function(data, covariates, outcome) {
+  # requiresl3
+
+  # glm_learner <- # sl3::Lrnr_glm_fast$new()
+  # task <- #sl3::sl3_Task$new(data, covariates = covariates, outcome = outcome)
+  # learner_fit <- # glm_learner$train(task)
+
   g_a <- glm(a ~ 1, family = "binomial", data = data)
   g_a_l0 <- glm(a ~ w_1 + w_2 + w_3, family = "binomial", data = data)
   g_m_a <- glm(m ~ a, family = "binomial", data = data)
   g_m_l <- glm(m ~ w_1 + w_2 + w_3 + a + z, family = "binomial", data = data)
 
+  # a_pred <- # learner_fit$predict(task, g_a)
   pred_g1_a <- predict(g_a, type = "response")
   pred_g0_a <- 1 - pred_g1_a
 
@@ -86,6 +93,7 @@ res
 
 library(medoutcon)
 
+start_time_1 <- Sys.time()
 ests_dir_os <- medoutcon(
   W = data.frame(w_1, w_2, w_3),
   A = a,
@@ -97,6 +105,9 @@ ests_dir_os <- medoutcon(
   v_learners = sl3::Lrnr_glm_fast$new(),
   estimator = "onestep"
 )
+end_time_1 <- Sys.time()
+diff_1 <- end_time_1 - start_time_1
+diff_1
 
 ests_dir_os
 # Interventional Direct Effect
@@ -105,6 +116,7 @@ ests_dir_os
 # Std. Error: 0.021
 # 95% CI: [0.085, 0.167]
 
+start_time_2 <- Sys.time()
 ests_dir_tmle <- medoutcon(
   W = data.frame(w_1, w_2, w_3),
   A = a,
@@ -116,6 +128,9 @@ ests_dir_tmle <- medoutcon(
   v_learners = sl3::Lrnr_glm_fast$new(),
   estimator = "tmle"
 )
+end_time_2 <- Sys.time()
+diff_2 <- end_time_2 - start_time_2
+diff_2
 
 ests_dir_tmle
 # Interventional Direct Effect
@@ -124,6 +139,7 @@ ests_dir_tmle
 # Std. Error: 0.021
 # 95% CI: [0.019, 0.1]
 
+start_time_3 <- Sys.time()
 ests_ind_os <- medoutcon(
   W = data.frame(w_1, w_2, w_3),
   A = a,
@@ -135,6 +151,9 @@ ests_ind_os <- medoutcon(
   v_learners = sl3::Lrnr_glm_fast$new(),
   estimator = "onestep"
 )
+end_time_3 <- Sys.time()
+diff_3 <- end_time_3 - start_time_3
+diff_3
 
 ests_ind_os
 # Interventional Indirect Effect
@@ -143,6 +162,7 @@ ests_ind_os
 # Std. Error: 0.012
 # 95% CI: [0.009, 0.056]
 
+start_time_4 <- Sys.time()
 ests_ind_tmle <- medoutcon(
   W = data.frame(w_1, w_2, w_3),
   A = a,
@@ -154,6 +174,9 @@ ests_ind_tmle <- medoutcon(
   v_learners = sl3::Lrnr_glm_fast$new(),
   estimator = "tmle"
 )
+end_time_4 <- Sys.time()
+diff_4 <- end_time_4 - start_time_4
+diff_4
 
 ests_ind_tmle
 # Interventional Indirect Effect
@@ -176,3 +199,62 @@ res
 
 # TODO: corriger la fonction pour qu'elle s'adapte à ces données
 # TODO: comparer avec les résultats de medoutcon
+
+file_path <- "../Data/simulations/"
+set.seed(42)
+idx <- sample(1:1000, size = 500)
+
+start_time <- Sys.time()
+for (i in 1:1000) {
+  print(paste0("Simulation ", i))
+  data <- data.frame(read.csv(paste(file_path, "data_", i, ".csv", sep = "")))
+  data <- subset(data, select = -c(y_qol))
+
+  ests_dir_os <- medoutcon(
+    W = data.frame(data[, 1], data[, 2]),
+    A = data[, 3],
+    Z = data[, 4],
+    M = data[, 5],
+    Y = data[, 6],
+    effect = "indirect",
+    u_learners = sl3::Lrnr_glm_fast$new(),
+    v_learners = sl3::Lrnr_glm_fast$new(),
+    estimator = "tmle"
+  )
+}
+end_time <- Sys.time()
+diff <- end_time - start_time
+diff
+
+# 100 samples, direct effect
+# one-step: 6.01 mins
+# tmle: 6.78 mins
+
+# 200 samples, direct effect
+# one-step: 16.83 mins
+# tmle: 15.05 mins
+
+# 500 samples, direct effect
+# one-step: 53.67 mins
+# tmle: 62.46 mins
+
+# 1000 samples, direct effect
+# one-step: 167.16 mins
+# tmle: 105.70 mins
+
+
+# 100 samples, indirect effect
+# one-step: 8.63 mins
+# tmle: 8.70 mins
+
+# 200 samples, indirect effect
+# one-step: 16.40 mins
+# tmle: 15.73 mins
+
+# 500 samples, indirect effect
+# one-step: 49.75 mins
+# tmle: 49.16 mins
+
+# 1000 samples, indirect effect
+# one-step: 100.31 mins
+# tmle: 107.15 mins
