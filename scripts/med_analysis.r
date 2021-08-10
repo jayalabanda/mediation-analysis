@@ -118,6 +118,44 @@ Psi_mrNDE
 Psi_mrNIE <- res$Psi_mrNIE
 Psi_mrNIE
 
+
+## Bootstrap
+file_path <- "../Data/simulations/"
+n_sim <- 1000
+set.seed(42)
+idx <- sample(1:1000, n_sim)
+sim <- 1
+
+ymodel <- "y_death ~ l0_male + l0_parent_low_educ_lv + a + l1 + m"
+mmodel <- "m ~ l0_male + l0_parent_low_educ_lv + a"
+l_a_model <- "l0_male + l0_parent_low_educ_lv + a"
+
+start_time <- Sys.time()
+for (i in idx) {
+  print(paste0("Simulation ", sim))
+  data <- read.csv(paste(file_path, "data_", i, ".csv", sep = ""))
+  res <- estimate.manual(
+    data = data, ymodel = ymodel, mmodel = mmodel,
+    l_a_model = l_a_model, A = "a0_ace", M = "m_smoking"
+  )
+  sim <- sim + 1
+}
+end_time <- Sys.time()
+diff <- end_time - start_time
+diff
+
+# avec n_sim = 100
+# 12.28 s
+
+# avec n_sim = 200
+# 24.58 s
+
+# avec n_sim = 500
+# 61.42 s
+
+# avec n_sim = 1000
+# 121.49 s
+
 #####################################################
 #####################################################
 

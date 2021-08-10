@@ -17,18 +17,11 @@ data <- data.frame(w_1, w_2, w_3, a, z, m, y)
 head(data)
 
 iptw_direct_indirect <- function(data, covariates, outcome) {
-  # requiresl3
-
-  # glm_learner <- # sl3::Lrnr_glm_fast$new()
-  # task <- #sl3::sl3_Task$new(data, covariates = covariates, outcome = outcome)
-  # learner_fit <- # glm_learner$train(task)
-
   g_a <- glm(a ~ 1, family = "binomial", data = data)
   g_a_l0 <- glm(a ~ w_1 + w_2 + w_3, family = "binomial", data = data)
   g_m_a <- glm(m ~ a, family = "binomial", data = data)
   g_m_l <- glm(m ~ w_1 + w_2 + w_3 + a + z, family = "binomial", data = data)
 
-  # a_pred <- # learner_fit$predict(task, g_a)
   pred_g1_a <- predict(g_a, type = "response")
   pred_g0_a <- 1 - pred_g1_a
 
@@ -91,6 +84,97 @@ res
 # $iptw_ein
 # [1] 0.02732996
 
+iptw_direct_indirect_bis <- function(data) {
+  g_a <- glm(a ~ 1, family = "binomial", data = data)
+  g_a_l0 <- glm(a ~ w_1 + w_2, family = "binomial", data = data)
+  g_m_a <- glm(m ~ a, family = "binomial", data = data)
+  g_m_l <- glm(m ~ w_1 + w_2 + a + z, family = "binomial", data = data)
+
+  pred_g1_a <- predict(g_a, type = "response")
+  pred_g0_a <- 1 - pred_g1_a
+
+  pred_g1_a_l0 <- predict(g_a_l0, type = "response")
+  pred_g0_a_l0 <- 1 - pred_g1_a_l0
+
+  pred_g1_m_a <- predict(g_m_a, type = "response")
+  pred_g0_m_a <- 1 - pred_g1_m_a
+
+  pred_g1_m_l <- predict(g_m_l, type = "response")
+  pred_g0_m_l <- 1 - pred_g1_m_l
+
+  g_a <- gm_a <- g_a_l <- gm_al <- rep(NA, nrow(data))
+  g_a[data$a == 1] <- pred_g1_a[data$a == 1]
+  g_a[data$a == 0] <- pred_g0_a[data$a == 0]
+  g_a_l[data$a == 1] <- pred_g1_a_l0[data$a == 1]
+  g_a_l[data$a == 0] <- pred_g0_a_l0[data$a == 0]
+  gm_a[data$m == 1] <- pred_g1_m_a[data$m == 1]
+  gm_a[data$m == 0] <- pred_g0_m_a[data$m == 0]
+  gm_al[data$m == 1] <- pred_g1_m_l[data$m == 1]
+  gm_al[data$m == 0] <- pred_g0_m_l[data$m == 0]
+
+  sw <- (g_a * gm_a) / (g_a_l * gm_al)
+
+  msm_y <- glm(y ~ a + m + a:m,
+    family = "gaussian",
+    data = data, weights = sw
+  )
+  msm_m <- glm(m ~ a + w_1 + w_2, family = "binomial", data = data)
+
+  iptw_edn_l0 <- msm_y$coefficients["a"] +
+    (msm_y$coefficients["a:m"] *
+      plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+        msm_m$coefficients["w_1"] * data$w_1 +
+        msm_m$coefficients["w_2"] * data$w_2))
+
+  iptw_ein_l0 <- (msm_y$coefficients["m"] + msm_y$coefficients["a:m"]) *
+    (plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+      msm_m$coefficients["a"] +
+      msm_m$coefficients["w_1"] * data$w_1 +
+      msm_m$coefficients["w_2"] * data$w_2) -
+      plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+        msm_m$coefficients["w_1"] * data$w_1 +
+        msm_m$coefficients["w_2"] * data$w_2))
+
+  iptw_edn <- mean(iptw_edn_l0)
+  iptw_ein <- mean(iptw_ein_l0)
+
+  return(list(iptw_edn = iptw_edn, iptw_ein = iptw_ein))
+}
+
+# Speed
+file_path <- "../Data/simulations/"
+n_sim <- 1000
+set.seed(42)
+idx <- sample(1:1000, size = n_sim)
+sim <- 1
+
+start_time <- Sys.time()
+for (i in idx) {
+  print(paste("Simulation ", sim))
+  data <- read.csv(paste0(file_path, "data_", i, ".csv", sep = ""))
+  data <- subset(data, select = -c(y_qol))
+  colnames(data) <- c("w_1", "w_2", "a", "z", "m", "y")
+
+  res <- iptw_direct_indirect_bis(data)
+  sim <- sim + 1
+}
+end_time <- Sys.time()
+diff <- end_time - start_time
+diff
+
+# avec n_sim = 100
+# 13.81 s
+
+# avec n_sim = 100
+# 26.91 s
+
+# avec n_sim = 500
+# 68.42 s
+
+# avec n_sim = 1000
+# 140.54 s
+
+###############
 library(medoutcon)
 
 start_time_1 <- Sys.time()
@@ -185,7 +269,7 @@ ests_ind_tmle
 # Std. Error: 0.012
 # 95% CI: [0.005, 0.051]
 
-# les timations pour l'effet direct sont bonnes avec onestep, mais pas avec tmle
+# les estimations pour l'effet direct sont bonnes avec onestep, pas avec tmle
 # en revanche, les estimations de l'effet indirect sont bonnes avec tmle
 # et moins bonnes avec onestep
 
@@ -196,9 +280,6 @@ head(data)
 
 res <- iptw_direct_indirect(data)
 res
-
-# TODO: corriger la fonction pour qu'elle s'adapte à ces données
-# TODO: comparer avec les résultats de medoutcon
 
 file_path <- "../Data/simulations/"
 set.seed(42)

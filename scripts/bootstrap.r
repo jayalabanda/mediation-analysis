@@ -295,7 +295,9 @@ estimate_stremr <- function(data, mmodel, covars, l1, A, M, outcome, q_forms) {
   ))
 }
 
-file_path <- "../../Data/"
+###### Bootstrap
+
+file_path <- "../Data/simulations/"
 
 n_sim <- 100
 n_boot <- 200
@@ -341,9 +343,15 @@ write.csv(
   row.names = FALSE
 )
 
-for (i in 1:n_sim) {
-  print(paste0("Simulation n°: ", i))
-  data_sim <- gen_data_time_varying_l(N = 10000, a_m_inter = 0)
+set.seed(42)
+idx <- sample(1:1000, size = n_sim)
+sim <- 1
+
+start_time <- Sys.time()
+for (i in idx) {
+  print(paste0("Simulation n°: ", sim))
+  sim <- sim + 1
+  data_sim <- read.csv(paste0(file_path, "data_", i, ".csv", sep = ""))
   data_sim <- subset(data_sim, select = -c(y_qol))
 
   gcomp_estimates <- estimate_manual(
@@ -458,6 +466,9 @@ for (i in 1:n_sim) {
     row.names = FALSE
   )
 }
+end_time <- Sys.time()
+diff <- end_time - start_time
+diff
 
 estimates_sde_gcomp <- read.csv(
   paste(file_path, "estimates_sde_gcomp.csv", sep = "")
