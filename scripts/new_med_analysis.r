@@ -238,8 +238,8 @@ results
 # sie_ub  0.01575991
 
 ## Bootstrap
-n_sim <- 100
-n_boot <- 500
+n_sim <- 200
+n_boot <- 200
 true_sde <- 0.0625841
 true_sie <- 0.009845864
 sim_data_path <- "../Data/simulations/"
@@ -446,6 +446,21 @@ write.csv(
 # 1 -0.001949152 9.766798e-06 0.003125188 -0.6236911 1.356599e-05
 # av.est.std coverage
 # 0.003218264    0.88
+
+
+# n_sim = 200, n_boot = 200
+# 3h14
+
+# Avec M binaire
+#         bias     variance        STD  std.bias          MSE
+# 1 0.00260686 0.0002538018 0.01593116 0.1636328 0.0002605975
+# av.est.std coverage
+#  0.0147856    0.925
+
+#           bias     variance         STD   std.bias          MSE
+# 1 -0.002078757 9.433828e-06 0.003071454 -0.6767991 1.375506e-05
+#    av.est.std  coverage
+# 1 0.003223341   0.855
 
 
 ################################################

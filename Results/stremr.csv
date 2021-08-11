@@ -1,0 +1,9 @@
+estimator,n_samples,duration
+g-computation,100,1.40
+g-computation,200,2.72
+g-computation,500,7.01
+g-computation,1000,15.78
+TMLE,100,2.61
+TMLE,200,5.17
+TMLE,500,12.83
+TMLE,1000,28.45
