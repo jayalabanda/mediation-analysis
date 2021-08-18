@@ -1006,7 +1006,153 @@ head(data)
 
 manip_res <- iptw.direct.indirect(data)
 manip_res
+
 # data[data$L0_male == 0 & data$L0_parent_low_educ_lv == 1 & data$A0_ace == 0 & 
 # data$L1 == 1 & data$M_smoking == 1 & data$Y_death == 1, ] = 0
 
-# En changeant certaines cases, les estimations varient mais restent assez proches de la valeur trouvée
+# En changeant certaines cases, les estimations varient
+# mais restent assez proches de la valeur trouvée
+
+##### 7.1) on modifie les paramètres de sorte à ce que les groupes d'exposition à A et à M aient des probabilités faibles dans certaines strates de L0
+sim.param.time.varying.L <- function(A.M.interaction = NULL) {
+  # L0
+  p_L0_male <- 0.5
+  p_L0_parent_low_educ_lv <- 0.65
+  
+  # A: A0_ace <- rbinom( 0.05 + 0.04 * L0_male + 0.06 * L0_parent_low_educ_lv ) 
+  b_A <- 1/10000   # MODIFICATION ICI : baseline 1/10000
+  b_male_A <- 0.04  # + 0.04 for the effect of L0_male -> A0_ace
+  b_parent_educ_A <- 0.06  # +0.06 for the effect of L0_parent_low_educ_lv -> A0_ace
+  
+  # L1: L1 <- rbinom( 0.30 - 0.05 * L0_male + 0.08 * L0_parent_low_educ_lv + 0.2 * A0_ace ) 
+  b_L1 <- 0.30   # reference prevalence is 30%
+  b_male_L1 <- -0.05  # - 0.05 for the effect of L0_male -> L1
+  b_parent_L1 <- +0.08 # + 0.08 for the effect of L0_parent_low_educ_lv -> L1
+  b_A_L1 <- +0.2 # +0.2 for the effect of A0_ace -> L1
+  
+  # M: M_smoking <- rbinom( 0.2 + 0.05 * L0_male + 0.06 * L0_parent_low_educ_lv + 0.2 * L1 + 0.1 * A0_ace ) 
+  b_M <- 1/10000 # MODIFICATION ICI : baseline 1/10000
+  b_male_M <- 0.05 # +0.05 for the effect of L0_male -> M_smoking
+  b_parent_educ_M <- 0.06 # +0.06 for the effect of L0_parent_low_educ_lv -> M_smoking
+  b_A_M <- 0.1 # +0.10 for the effect of A0_ace -> M_smoking
+  b_L1_M <- 0.2 # +0.2 for the effect of L1 -> M_smoking
+  
+  # Y binary: rbinom( 0.10 + 0.06 * L0_male + 0.04 * L0_parent_low_educ_lv + 0.05 * A0_ace + 0.07 * L1 + 0.08 * M_smoking +
+  #                   0.03 * A0_ace * M_smoking * A.M.inter ) 
+  b_Y <- 0.1 # reference prevalence is 10%
+  b_male_Y <- 0.06 # +0.06 for the effect of L0_male -> Y
+  b_parent_educ_Y <- 0.04 # +0.04 for the effect of L0_parent_low_educ_lv -> Y
+  b_A_Y <- 0.05 # 0.05 for the effect of A0_ace -> Y
+  b_L1_Y <- 0.07 # +0.07 for the effect of L1 -> Y
+  b_M_Y <- 0.08 # 0.08 for the effect of M_smoking -> Y
+  b_AM_Y <- 0.03 # 0.03 for the interaction effect A0_ace * M_smoking -> Y
+  
+  # Y continuous: (75 - 1 * L0_male - 3 * L0_parent_low_educ_lv - 4 * A0_ace -3.5 * L1 - 9 * M_smoking + 
+  #             -5 * A0_ace * M_smoking * A.M.inter ) + rnorm(N, mean = 0, sd = 10)
+  mu_Y <- 75 # reference mean for QoL
+  c_male_Y <- -1 # -1 for the effect of L0_male -> Y
+  c_parent_educ_Y <- -3 # -3 for the effect of L0_parent_low_educ_lv -> Y
+  c_A_Y <- -4 # -4 for the effect of A0_ace -> Y
+  c_L1_Y <- -5 # -5 for the effect of L1 -> Y
+  c_M_Y <- -9 # -9 for the effect of M_smoking -> Y
+  c_AM_Y <- -5  # - 5 for the interaction effect A0_ace * M_smoking  -> Y
+  sd_Y <- 10 # standard deviation of the residuals
+  
+  # A*M interaction ?
+  A.M.inter <- A.M.interaction
+  
+  coef <- c( p_L0_male = p_L0_male, p_L0_parent_low_educ_lv = p_L0_parent_low_educ_lv, 
+             b_A = b_A, b_male_A = b_male_A, b_parent_educ_A = b_parent_educ_A, 
+             b_L1 = b_L1, b_male_L1 = b_male_L1, b_parent_L1 = b_parent_L1, b_A_L1 = b_A_L1,
+             b_M = b_M, b_male_M = b_male_M, b_parent_educ_M = b_parent_educ_M, b_L1_M = b_L1_M, b_A_M = b_A_M,
+             b_Y = b_Y, b_male_Y = b_male_Y, b_parent_educ_Y = b_parent_educ_Y, b_A_Y = b_A_Y, b_L1_Y = b_L1_Y, b_M_Y = b_M_Y, b_AM_Y = b_AM_Y,
+             mu_Y = mu_Y, c_male_Y = c_male_Y, c_parent_educ_Y = c_parent_educ_Y, c_A_Y = c_A_Y, c_L1_Y = c_L1_Y, c_M_Y = c_M_Y, c_AM_Y = c_AM_Y, 
+             sd_Y = sd_Y, A.M.inter = A.M.inter)
+  
+  return(coef)
+}
+
+##### 7.2) les vraies valeurs attendues sont alors : 
+# sans terme d'interaction
+true.ATE2.no.inter <- true.ATE.time.var.conf(interaction = 0)
+true.ATE2.no.inter
+# $ATE.death
+# [1] 0.0752
+# 
+# $ATE.qol
+# [1] -6.26
+
+# avec un terme d'interaction
+true.ATE2.with.inter <- true.ATE.time.var.conf(interaction = 1)
+true.ATE2.with.inter
+# $ATE.death
+# [1] 0.089282
+# 
+# $ATE.qol
+# [1] -8.607
+# ça ne change rien pour les effets attendus, dans ces modèles linéaires
+
+
+true.marg.random2.no.inter <- true.marg.random.time.var(interaction = 0)
+true.marg.random2.no.inter
+# $mrNDE.death
+# [1] 0.064
+# 
+# $mrNIE.death
+# [1] 0.0112
+# 
+# $mrNDE.qol
+# [1] -5
+# 
+# $mrNIE.qol
+# [1] -1.26
+
+
+# avec terme d'interaction
+true.marg.random2.with.inter <- true.marg.random.time.var(interaction = 1)
+true.marg.random2.with.inter
+# $mrNDE.death
+# [1] 0.067912
+# 
+# $mrNIE.death
+# [1] 0.0154
+# 
+# $mrNDE.qol
+# [1] -5.652
+# 
+# $mrNIE.qol
+# [1] -1.96
+
+
+##### 7.3) estimation dans une base et vérification de la distribution des poids
+set.seed(1234)
+data.sim <- gen.data.time.varying.L(N=10000, A.M.inter=1)
+
+results <- iptw.direct.indirect(data.sim)
+
+boxplot(results$sw)
+# la distribution des poids est un peu plus dispersée
+
+
+##### 7.4) simulation dans 1000 bases
+
+# tableau pour enregistrer les résultats
+results.iptw <- matrix(nrow = 1000, ncol = 2)
+colnames(results.iptw) <- c("iptw.EDN", "iptw.EIN")
+
+
+# simu 
+set.seed(1234)
+for (j in 1:1000) {
+  data.sim <- gen.data.time.varying.L(N=10000, A.M.inter=1)
+  
+  results <- iptw.direct.indirect(data.sim)
+  
+  results.iptw[j,"iptw.EDN"] <- results$iptw.EDN - true.marg.random2.with.inter$mrNDE.death
+  results.iptw[j,"iptw.EIN"] <- results$iptw.EIN - true.marg.random2.with.inter$mrNIE.death
+  
+}
+
+boxplot(results.iptw) 
+abline(h = 0)
+# on voit que les résultats sont un peu plus biaisés et plus dispersés

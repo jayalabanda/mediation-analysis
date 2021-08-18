@@ -237,9 +237,8 @@ results
 # sie_lb  0.00329566
 # sie_ub  0.01575991
 
-## Bootstrap
-n_sim <- 200
-n_boot <- 200
+## Multiple simulations
+n_sim <- 1000
 true_sde <- 0.0625841
 true_sie <- 0.009845864
 sim_data_path <- "../Data/simulations/"
@@ -263,9 +262,12 @@ write.csv(
   row.names = FALSE
 )
 
+set.seed(42)
+idx <- sample(1:1000, size = n_sim)
+
 start_time <- Sys.time()
 for (i in 1:n_sim) {
-  print(paste0("Simulation n°: ", i))
+  print(paste0("Simulation ", i))
   data_sim <- read.csv(paste0(sim_data_path, "data_", i, ".csv", sep = ""))
   data_sim <- subset(data_sim, select = -c(y_qol))
 
@@ -283,6 +285,15 @@ for (i in 1:n_sim) {
     qmodel = qmodel
   )
 
+  # sde sde_tmle
+  # sde_var var_sde_eic
+  # sie sie_tmle
+  # sie_var var_sie_eic
+  # sde_tmle - 1.96 * sqrt(var_sde_eic) # nolint
+  # sde_tmle + 1.96 * sqrt(var_sde_eic) # nolint
+  # sie_tmle - 1.96 * sqrt(var_sie_eic) # nolint
+  # sie_tmle + 1.96 * sqrt(var_sie_eic) # nolint
+
   estimates_sde_rud <- read.csv(
     paste(file_path, "estimates_sde_rud.csv", sep = "")
   )
@@ -293,50 +304,14 @@ for (i in 1:n_sim) {
   )
   estimates_sie_rud[i, "sie_rud"] <- rud_estimates$sie
 
-  boot_sde_estimates <- data.frame(matrix(NA, nrow = n_boot, ncol = 1))
-  colnames(boot_sde_estimates) <- "boot_sde_estimate"
-
-  boot_sie_estimates <- data.frame(matrix(NA, nrow = n_boot, ncol = 1))
-  colnames(boot_sie_estimates) <- "boot_sie_estimate"
-
-  for (b in 1:n_boot) {
-    idx <- sample(seq(1, nrow(data_sim)), replace = TRUE)
-    boot_data <- data_sim[idx, ]
-
-    if (b %% 100 == 0 & b != 0) {
-      print(paste0("Bootstrap number: ", b))
-    }
-
-    rud_boot <- estimate_effects(
-      data = boot_data,
-      treatment = "a0_ace",
-      covariates = covariates,
-      control = "l1",
-      mediator = "m_smoking",
-      outcome = "y_death",
-      amodel = amodel,
-      ymodel = ymodel,
-      mmodel = mmodel,
-      zmodel = zmodel,
-      qmodel = qmodel
-    )
-
-    boot_sde_estimates[b, ] <- rud_boot$sde
-    boot_sie_estimates[b, ] <- rud_boot$sie
-  }
-
-  boot_sde_est <- boot_sde_estimates$boot_sde_estimate
-  estimates_sde_rud[i, "sd_rud"] <- sd(boot_sde_est)
+  estimates_sde_rud[i, "sd_rud"] <- sqrt(rud_estimates$sde_var)
   estimates_sde_rud[i, "cov_rud"] <- as.numeric(
-    true_sde >= estimates_sde_rud[i, 1] - 1.96 * sd(boot_sde_est) &
-      true_sde <= estimates_sde_rud[i, 1] + 1.96 * sd(boot_sde_est)
+    true_sde >= rud_estimates$sde_lb & true_sde <= rud_estimates$sde_ub
   )
 
-  boot_sie_est <- boot_sie_estimates$boot_sie_estimate
-  estimates_sie_rud[i, "sd_rud"] <- sd(boot_sie_est)
+  estimates_sie_rud[i, "sd_rud"] <- sqrt(rud_estimates$sie_var)
   estimates_sie_rud[i, "cov_rud"] <- as.numeric(
-    true_sie >= estimates_sie_rud[i, 1] - 1.96 * sd(boot_sie_est) &
-      true_sie <= estimates_sie_rud[i, 1] + 1.96 * sd(boot_sie_est)
+    true_sie >= rud_estimates$sie_lb & true_sie <= rud_estimates$sie_ub
   )
 
   write.csv(estimates_sde_rud,
@@ -433,34 +408,60 @@ write.csv(
   row.names = FALSE
 )
 
-# n_sim = 100, n_boot = 500
-# 4h
+# avec n_sim = 100
+# 33 secondes
 
-# Avec M binaire
-#         bias     variance        STD  std.bias          MSE
-# 1 0.00396171 0.0002467648 0.01570875 0.2521977 0.0002624599
+#        bias     variance        STD  std.bias          MSE
+# 0.005895337 0.0002654741 0.01629338 0.3618242 0.0003002291
+# av.est.std  coverage
+# 0.01478183      0.91
+
+#         bias    variance         STD   std.bias          MSE
+# -0.002299103 9.67812e-06 0.003110968 -0.7390313 1.496399e-05
+# av.est.std   coverage
+# 0.002909055      0.79
+
+
+# avec n_sim = 200
+# 67 secondes
+
+#        bias    variance        STD  std.bias          MSE
+# 0.004195821 0.000244529 0.01563742 0.2683192 0.0002621339
+# av.est.std   coverage
+# 0.01474713      0.945
+
+#        bias     variance         STD   std.bias          MSE
+# -0.00233614 8.745933e-06 0.002957352 -0.7899429 1.420348e-05
+# av.est.std  coverage
+# 0.00290261      0.835
+
+
+# avec n_sim = 500
+# 180 secondes
+
+#        bias     variance        STD std.bias          MSE
+# 0.003625576 0.0002424613 0.01557117 0.232839 0.0002556061
 # av.est.std coverage
-# 0.01472793     0.93
+# 0.01472674     0.94
 
-#           bias     variance         STD   std.bias          MSE
-# 1 -0.001949152 9.766798e-06 0.003125188 -0.6236911 1.356599e-05
+#         bias     variance         STD   std.bias         MSE
+# -0.002134444 9.349553e-06 0.003057704 -0.6980544 1.39054e-05
+#  av.est.std  coverage
+# 0.002920046     0.836
+
+
+# avec n_sim = 1000
+# 393 secondes
+
+#        bias     variance        STD  std.bias          MSE
+# 0.004226775 0.0002281683 0.01510524 0.2798218 0.0002460339
+# av.est.std  coverage
+# 0.01475409     0.944
+
+#         bias     variance         STD   std.bias         MSE
+# -0.001993806 9.975039e-06 0.003158328 -0.6312853 1.39503e-05
 # av.est.std coverage
-# 0.003218264    0.88
-
-
-# n_sim = 200, n_boot = 200
-# 3h14
-
-# Avec M binaire
-#         bias     variance        STD  std.bias          MSE
-# 1 0.00260686 0.0002538018 0.01593116 0.1636328 0.0002605975
-# av.est.std coverage
-#  0.0147856    0.925
-
-#           bias     variance         STD   std.bias          MSE
-# 1 -0.002078757 9.433828e-06 0.003071454 -0.6767991 1.375506e-05
-#    av.est.std  coverage
-# 1 0.003223341   0.855
+# 0.00293344     0.84
 
 
 ################################################
@@ -628,7 +629,7 @@ expit <- function(x) {
 }
 
 ## Multiple simulaitions
-n_sim <- 200
+n_sim <- 500
 true_sde <- 0.0625841
 true_sie <- 0.009845864
 sim_data_path <- "../Data/simulations/"
@@ -669,18 +670,6 @@ for (i in 1:n_sim) {
   colnames(data_sim)[4] <- "Z"
   colnames(data_sim)[5] <- "M_1"
   colnames(data_sim)[6] <- "Y"
-
-  # data_sim[, "M_2"] <- rbinom(
-  #   nrow(data_sim), 1,
-  #   expit(data_sim$W_1 + data_sim$W_2 + data_sim$A - data_sim$Z +
-  #     data_sim$A * data_sim$Z - 0.3 * data_sim$A * data_sim$W_2)
-  # )
-
-  # data_sim[, "M_3"] <- rbinom(
-  #   nrow(data_sim), 1,
-  #   expit(data_sim$W_1 - data_sim$W_2 + 0.2 * data_sim$A + data_sim$Z +
-  #     0.1 * data_sim$A * data_sim$Z - 0.4 * data_sim$A * data_sim$W_2)
-  # )
 
   w_names <- str_subset(colnames(data_sim), "W")
   m_names <- str_subset(colnames(data_sim), "M")
@@ -745,6 +734,7 @@ for (i in 1:n_sim) {
 }
 end_time <- Sys.time()
 diff <- end_time - start_time
+diff
 
 estimates_sde_moc <- read.csv(
   paste(file_path, "estimates_sde_moc.csv", sep = "")
@@ -964,6 +954,47 @@ write.csv(
 # cov_sie_tmle 0.965
 
 
+# avec n_sim = 500
+# 256 minutes
+
+# Avec M binaire
+# sde_estimate_os 0.06334182
+# bias_sde_os 0.0007577187
+# var_sde_os 0.0002608212
+# se_sde_os 0.01614996
+# sd_bias_sde_os 0.04691768
+# mse_sde_os 0.0002613953
+# av_estimated_se_sde_os 0.01541723
+# cov_sde_os 0.94
+
+# sde_estimate_tmle 0.05329151
+# bias_sde_tmle -0.009292589
+# var_sde_tmle 0.0003726171
+# se_sde_tmle 0.01930329
+# sd_bias_sde_tmle -0.4813991
+# mse_sde_tmle 0.0004589693
+# av_estimated_se_sde_tmle 0.015407
+# cov_sde_tmle 0.838
+
+# sie_estimate_os 0.0110552
+# bias_sie_os 0.001209332
+# var_sie_os 1.963019e-05
+# se_sie_os 0.004430597
+# sd_bias_sie_os 0.2729502
+# mse_sie_os 2.109267e-05
+# av_estimated_se_sie_os 0.004553165
+# cov_sie_os 0.95
+
+# sie_estimate_tmle 0.01098797
+# bias_sie_tmle 0.00114210
+# var_sie_tmle 1.808544e-05
+# se_sie_tmle 0.004252697
+# sd_bias_sie_tmle 0.2685609
+# mse_sie_tmle 1.938985e-05
+# av_estimated_se_sie_tmle 0.004396178
+# cov_sie_tmle 0.956
+
+
 # avec lrnr hal, n_sim = 100
 # 60 minutes
 
@@ -1044,3 +1075,44 @@ write.csv(
 # mse_sie_tmle 1.73976e-05
 # av_estimated_se_sie_tmle 0.004373798
 # cov_sie_tmle 0.97
+
+
+# avec lrnr hal, n_sim = 500
+# 492 minutes
+
+# Avec M binaire
+# sde_estimate_os 0.06325383
+# bias_sde_os 0.0006697301
+# var_sde_os 0.0002583457
+# se_sde_os 0.01607314
+# sd_bias_sde_os 0.04166767
+# mse_sde_os 0.0002587943
+# av_estimated_se_sde_os 0.01540262
+# cov_sde_os 0.942
+
+# sde_estimate_tmle 0.05328516
+# bias_sde_tmle -0.00929894
+# var_sde_tmle 0.0003743361
+# se_sde_tmle 0.01934777
+# sd_bias_sde_tmle -0.4806208
+# mse_sde_tmle 0.0004608064
+# av_estimated_se_sde_tmle 0.01539259
+# cov_sde_tmle 0.838
+
+# sie_estimate_os 0.01108144
+# bias_sie_os 0.001235574
+# var_sie_os 1.958905e-05
+# se_sie_os 0.004425952
+# sd_bias_sie_os 0.2791658
+# mse_sie_os 2.111569e-05
+# av_estimated_se_sie_os 0.004556098
+# cov_sie_os 0.944
+
+# sie_estimate_tmle 0.01100653
+# bias_sie_tmle 0.001160663
+# var_sie_tmle 1.840612e-05
+# se_sie_tmle 0.004290235
+# sd_bias_sie_tmle 0.2705361
+# mse_sie_tmle 1.975326e-05
+# av_estimated_se_sie_tmle 0.004395537
+# cov_sie_tmle 0.958
