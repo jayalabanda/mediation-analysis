@@ -143,20 +143,39 @@ iptw_direct_indirect_bis <- function(data) {
 
 # Speed
 file_path <- "../Data/simulations/"
-n_sim <- 1000
+file_path_bis <- "../Data/new_simulations/"
+
+mrnde_death <- 0.073882
+mrnie_death <- 0.0154
+
+n_sim <- 500
 set.seed(42)
 idx <- sample(1:1000, size = n_sim)
-sim <- 1
+
+results_iptw <- matrix(nrow = n_sim, ncol = 2)
+results_iptw_bis <- matrix(nrow = n_sim, ncol = 2)
+colnames(results_iptw) <- c("iptw_EDN", "iptw_EIN")
+colnames(results_iptw_bis) <- c("iptw_EDN", "iptw_EIN")
 
 start_time <- Sys.time()
-for (i in idx) {
-  print(paste("Simulation ", sim))
-  data <- read.csv(paste0(file_path, "data_", i, ".csv", sep = ""))
+for (i in 1:n_sim) {
+  print(paste("Simulation ", i))
+
+  data <- read.csv(paste0(file_path, "data_", idx[i], ".csv", sep = ""))
   data <- subset(data, select = -c(y_qol))
   colnames(data) <- c("w_1", "w_2", "a", "z", "m", "y")
 
+  data_bis <- read.csv(paste0(file_path_bis, "data_", idx[i], ".csv", sep = ""))
+  data_bis <- subset(data_bis, select = -c(y_qol))
+  colnames(data_bis) <- c("w_1", "w_2", "a", "z", "m", "y")
+
   res <- iptw_direct_indirect_bis(data)
-  sim <- sim + 1
+  res_bis <- iptw_direct_indirect_bis(data_bis)
+
+  results_iptw[i, "iptw_EDN"] <- res$iptw_edn - mrnde_death
+  results_iptw[i, "iptw_EIN"] <- res$iptw_ein - mrnie_death
+  results_iptw_bis[i, "iptw_EDN"] <- res$iptw_edn - mrnde_death
+  results_iptw_bis[i, "iptw_EIN"] <- res$iptw_ein - mrnie_death
 }
 end_time <- Sys.time()
 diff <- end_time - start_time
@@ -165,7 +184,7 @@ diff
 # avec n_sim = 100
 # 13.81 s
 
-# avec n_sim = 100
+# avec n_sim = 200
 # 26.91 s
 
 # avec n_sim = 500
@@ -173,6 +192,15 @@ diff
 
 # avec n_sim = 1000
 # 140.54 s
+
+write.csv(results_iptw,
+  file = paste("../Data/", "results_iptw.csv", sep = ""),
+  row.names = FALSE
+)
+write.csv(results_iptw_bis,
+  file = paste("../Data/", "results_iptw_bis.csv", sep = ""),
+  row.names = FALSE
+)
 
 ###############
 library(medoutcon)

@@ -3,7 +3,8 @@ sim_param_time_varying_l <- function(a_m_interaction = NULL) {
   p_l0_male <- 0.5
   p_l0_parent_low_educ_lv <- 0.65
 
-  b_a <- 0.05 # reference prevalence is 5%
+  # b_a <- # 0.05 # reference prevalence is 5%
+  b_a <- 1 / 10000
   b_male_a <- 0.04 # + 0.04 for the effect of l0_male -> a0_ace
   b_parent_educ_a <- 0.06 # +0.06 for effect of l0_parent_low_educ_lv -> a0_ace
 
@@ -12,7 +13,8 @@ sim_param_time_varying_l <- function(a_m_interaction = NULL) {
   b_parent_l1 <- +0.08 # + 0.08 for the effect of l0_parent_low_educ_lv -> l1
   b_a_l1 <- +0.2 # +0.2 for the effect of a0_ace -> l1
 
-  b_m <- 0.2 # reference prevalence is 20%
+  # b_m <- # 0.2 # reference prevalence is 20%
+  b_m <- 1 / 10000
   b_male_m <- 0.05 # +0.05 for the effect of l0_male -> m_smoking
   b_parent_educ_m <- 0.06 # +0.06 effect of l0_parent_low_educ_lv -> m_smoking
   b_a_m <- 0.1 # +0.10 for the effect of a0_ace -> m_smoking
@@ -112,7 +114,7 @@ gen_data_time_varying_l <- function(N, a_m_inter) {
   return(data_sim)
 }
 
-file_path <- "../../Data/simulations/"
+file_path <- "../Data/simulations/"
 
 for (i in 1:1000) {
   print(paste0("Simulation n°:", i))
@@ -120,6 +122,16 @@ for (i in 1:1000) {
   write.csv(
     data,
     file = paste0(file_path, "data_", i, ".csv"), row.names = FALSE
+  )
+  rm(data)
+}
+
+file_path <- "../Data/new_simulations/"
+for (i in 1:1000) {
+  data <- gen_data_time_varying_l(N = 10000, a_m_inter = 0)
+  write.csv(data,
+    file = paste0(file_path, "data_", i, ".csv"),
+    row.names = FALSE
   )
   rm(data)
 }
