@@ -56,38 +56,38 @@ sim_param_time_varying_l <- function(a_m_interaction = NULL) {
   return(coef)
 }
 
-gen_data_time_varying_l <- function(N, a_m_inter) {
-  # input parameters: sample size N and presence of A*M interaction
+gen_data_time_varying_l <- function(n, a_m_inter) {
+  # input parameters: sample size n and presence of A*M interaction
 
   b <- sim_param_time_varying_l(a_m_interaction = a_m_inter)
 
   # baseline confounders: l0_parent_low_educ_lv & l0_male
-  l0_male <- rbinom(N, size = 1, prob = b["p_l0_male"])
-  l0_parent_low_educ_lv <- rbinom(N,
+  l0_male <- rbinom(n, size = 1, prob = b["p_l0_male"])
+  l0_parent_low_educ_lv <- rbinom(n,
     size = 1,
     prob = b["p_l0_parent_low_educ_lv"]
   )
 
   # exposure: a0_ace
-  a0_ace <- rbinom(N, size = 1, prob = b["b_a"] +
+  a0_ace <- rbinom(n, size = 1, prob = b["b_a"] +
     b["b_male_a"] * l0_male +
     b["b_parent_educ_a"] * l0_parent_low_educ_lv)
 
   # intermediate confounder between m_smoking and Y, not affected by A0 l1
-  l1 <- rbinom(N, size = 1, prob = b["b_l1"] +
+  l1 <- rbinom(n, size = 1, prob = b["b_l1"] +
     b["b_male_l1"] * l0_male +
     b["b_parent_l1"] * l0_parent_low_educ_lv +
     b["b_a_l1"] * a0_ace)
 
   # mediator: m_smoking
-  m_smoking <- rbinom(N, size = 1, prob = b["b_m"] +
+  m_smoking <- rbinom(n, size = 1, prob = b["b_m"] +
     b["b_male_m"] * l0_male +
     b["b_parent_educ_m"] * l0_parent_low_educ_lv +
     b["b_a_m"] * a0_ace +
     b["b_l1_m"] * l1)
 
   # y_death
-  y_death <- rbinom(N, size = 1, prob = b["b_y"] +
+  y_death <- rbinom(n, size = 1, prob = b["b_y"] +
     b["b_male_y"] * l0_male +
     b["b_parent_educ_y"] * l0_parent_low_educ_lv +
     b["b_a_y"] * a0_ace +
@@ -103,7 +103,7 @@ gen_data_time_varying_l <- function(N, a_m_inter) {
     b["c_l1_y"] * l1 +
     b["c_m_y"] * m_smoking +
     b["c_am_y"] * a0_ace * m_smoking * a_m_inter) +
-    rnorm(N, mean = 0, sd = b["sd_y"])
+    rnorm(n, mean = 0, sd = b["sd_y"])
 
   # data.frame
   data_sim <- data.frame(
@@ -118,17 +118,63 @@ file_path <- "../Data/simulations/"
 
 for (i in 1:1000) {
   print(paste0("Simulation n°:", i))
-  data <- gen_data_time_varying_l(N = 10000, a_m_inter = 0)
-  write.csv(
-    data,
-    file = paste0(file_path, "data_", i, ".csv"), row.names = FALSE
+  data <- gen_data_time_varying_l(n = 10000, a_m_inter = 0)
+  write.csv(data,
+    file = paste0(file_path, "data_", i, ".csv"),
+    row.names = FALSE
   )
   rm(data)
 }
 
 file_path <- "../Data/new_simulations/"
 for (i in 1:1000) {
-  data <- gen_data_time_varying_l(N = 10000, a_m_inter = 0)
+  data <- gen_data_time_varying_l(n = 10000, a_m_inter = 0)
+  write.csv(data,
+    file = paste0(file_path, "data_", i, ".csv"),
+    row.names = FALSE
+  )
+  rm(data)
+}
+
+file_path <- "../Data/simulations_rudolph/"
+for (i in 1:1000) {
+  n <- 10000
+  w1 <- rbinom(n, 1, 0.6)
+  w2 <- rbinom(n, 1, 0.3)
+  w3 <- rbinom(n, 1, 0.2 + (w1 + w2) / 3)
+  a <- rbinom(n, 1, expit(0.25 * (w1 + w2 + w3) + 3 * w1 * w2 - 2))
+  z <- rbinom(n, 1, expit((w1 + w2 + w3) / 3 - a - a * w3 - 0.25))
+  m <- rbinom(n, 1, expit(w1 + w2 + a - z + a * z - 0.3 * a * w2))
+  y <- rbinom(n, 1, expit((a - z + m - a * z) / (w1 + w2 + w3 + 1)))
+
+  data <- data.frame(w1, w2, w3, a, z, m, y)
+  write.csv(data,
+    file = paste0(file_path, "data_", i, ".csv"),
+    row.names = FALSE
+  )
+  rm(data)
+}
+
+library(dyngen)
+# create function to transform binary variable to quantitative
+bin_to_quant <- function(x) {
+  mn <- mean(x)
+  for (i in seq_len(length(x))) {
+    if (x[i] == 1) {
+      x[i] <- rnorm_bounded(1, (1 + mn) / 2, sd = 0.2, min = mn, max = 1)
+    } else {
+      x[i] <- rnorm_bounded(1, mn / 2, sd = 0.2, min = 0, max = mn)
+    }
+  }
+  return(x)
+}
+
+file_path <- "../Data/quantitative_simulations/"
+for (i in 1:1000) {
+  data <- gen_data_time_varying_l(n = 10000, a_m_inter = 0)
+  data[, 1] <- bin_to_quant(data[, 1])
+  data[, 2] <- bin_to_quant(data[, 2])
+
   write.csv(data,
     file = paste0(file_path, "data_", i, ".csv"),
     row.names = FALSE

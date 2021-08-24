@@ -566,7 +566,7 @@ tmle_ie
 # 95% CI: [0.001, 0.016]
 
 # Create practical function
-ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
+ind_dir_effects_medoutcon <- function(data, w_names, m_names, learner) {
   dir_os <- medoutcon(
     W = data[, w_names],
     A = data$A,
@@ -574,9 +574,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "direct",
-    estimator = "onestep"
-    # u_learners = sl3::Lrnr_glm_fast$new(),
-    # v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "onestep",
+    u_learners = learner,
+    v_learners = learner
   )
 
   dir_tmle <- medoutcon(
@@ -586,9 +586,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "direct",
-    estimator = "tmle"
-    # u_learners = sl3::Lrnr_glm_fast$new(),
-    # v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "tmle",
+    u_learners = learner,
+    v_learners = learner
   )
 
   ind_os <- medoutcon(
@@ -598,9 +598,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "indirect",
-    estimator = "onestep"
-    # u_learners = sl3::Lrnr_glm_fast$new(),
-    # v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "onestep",
+    u_learners = learner,
+    v_learners = learner
   )
 
   ind_tmle <- medoutcon(
@@ -610,9 +610,9 @@ ind_dir_effects_medoutcon <- function(data, w_names, m_names) {
     M = data[, m_names],
     Y = data$Y,
     effect = "indirect",
-    estimator = "tmle"
-    # u_learners = sl3::Lrnr_glm_fast$new(),
-    # v_learners = sl3::Lrnr_glm_fast$new()
+    estimator = "tmle",
+    u_learners = learner,
+    v_learners = learner
   )
 
   return(list(
@@ -675,7 +675,10 @@ for (i in 1:n_sim) {
   m_names <- str_subset(colnames(data_sim), "M")
 
   # Calculate effects from function
-  results_dir_ind <- ind_dir_effects_medoutcon(data_sim, w_names, m_names)
+  results_dir_ind <- ind_dir_effects_medoutcon(
+    data_sim, w_names, m_names,
+    sl3::Lrnr_glm_fast$new()
+  )
   # dir_result_os
   # dir_result_tmle
   # ind_result_os

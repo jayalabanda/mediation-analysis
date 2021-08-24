@@ -2,3 +2,6 @@
 *.csv
 *.txt
 *.png
+reprochainrdv/
+*.pdf
+.lintr

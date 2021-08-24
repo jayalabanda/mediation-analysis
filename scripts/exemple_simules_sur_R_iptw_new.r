@@ -1144,11 +1144,57 @@ for (j in 1:1000){
   
   results <- iptw.direct.indirect(data.sim)
   
-  results.iptw[j,"iptw.EDN"] <- results$iptw.EDN - true.marg.random2.with.inter$mrNDE.death
-  results.iptw[j,"iptw.EIN"] <- results$iptw.EIN - true.marg.random2.with.inter$mrNIE.death
+  results.iptw[j, "iptw.EDN"] <- results$iptw.EDN - true.marg.random2.with.inter$mrNDE.death
+  results.iptw[j, "iptw.EIN"] <- results$iptw.EIN - true.marg.random2.with.inter$mrNIE.death
   
 }
 
 boxplot(results.iptw) 
 abline(h = 0)
 # on voit que les résultats sont un peu plus biaisés et plus dispersés
+
+file_path <- "../Data/simulations/"
+file_path_bis <- "../Data/new_simulations/"
+n_sim <- 1000
+
+results_iptw <- matrix(nrow = n_sim, ncol = 2)
+results_iptw_bis <- matrix(nrow = n_sim, ncol = 2)
+colnames(results_iptw) <- c("iptw_EDN", "iptw_EIN")
+colnames(results_iptw_bis) <- c("iptw_EDN", "iptw_EIN")
+
+for (i in 1:n_sim) {
+  # print(paste("Simulation ", i))
+
+  data <- read.csv(paste0(file_path, "data_", i, ".csv", sep = ""))
+  # data <- subset(data, select = -c(y_qol))
+  colnames(data) <- c("L0_male", "L0_parent_low_educ_lv", "A0_ace",
+    "L1", "M_smoking", "Y_death", "Y_qol")
+
+  data_bis <- read.csv(paste0(file_path_bis, "data_", i, ".csv", sep = ""))
+  # data_bis <- subset(data_bis, select = -c(y_qol))
+  colnames(data_bis) <- c("L0_male", "L0_parent_low_educ_lv", "A0_ace",
+    "L1", "M_smoking", "Y_death", "Y_qol")
+
+  res <- iptw.direct.indirect(data)
+  res_bis <- iptw.direct.indirect(data_bis)
+
+  results_iptw[i, "iptw_EDN"] <- res$iptw.EDN - true.marg.random2.with.inter$mrNDE.death
+  results_iptw[i, "iptw_EIN"] <- res$iptw.EIN - true.marg.random2.with.inter$mrNIE.death
+  results_iptw_bis[i, "iptw_EDN"] <- res_bis$iptw.EDN - true.marg.random2.with.inter$mrNDE.death
+  results_iptw_bis[i, "iptw_EIN"] <- res_bis$iptw.EIN - true.marg.random2.with.inter$mrNIE.death
+}
+
+write.csv(results_iptw,
+  file = paste("../Data/", "results_iptw_new.csv", sep = ""),
+  row.names = FALSE
+)
+write.csv(results_iptw_bis,
+  file = paste("../Data/", "results_iptw_bis_new.csv", sep = ""),
+  row.names = FALSE
+)
+
+# TODO
+# comparer g-comp, one-step, TMLE et IPTW
+
+# TODO
+# modifier L1 en variable continue

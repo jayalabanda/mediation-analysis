@@ -84,6 +84,10 @@ res
 # $iptw_ein
 # [1] 0.02732996
 
+# TODO
+# plusieurs simulations
+# changer avec SuperLearner
+
 iptw_direct_indirect_bis <- function(data) {
   g_a <- glm(a ~ 1, family = "binomial", data = data)
   g_a_l0 <- glm(a ~ w_1 + w_2, family = "binomial", data = data)
@@ -148,7 +152,7 @@ file_path_bis <- "../Data/new_simulations/"
 mrnde_death <- 0.073882
 mrnie_death <- 0.0154
 
-n_sim <- 500
+n_sim <- 200
 set.seed(42)
 idx <- sample(1:1000, size = n_sim)
 
