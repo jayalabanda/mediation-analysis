@@ -1,9 +1,0 @@
-estimator,n_samples,direct_effect,indirect_effect
-one-step,100,6.01,8.63
-one-step,200,16.83,16.40
-one-step,500,53.67,49.75
-one-step,1000,167.16,100.31
-TMLE,100,6.78,8.63
-TMLE,200,15.05,15.73
-TMLE,500,62.46,49.16
-TMLE,1000,105.70,107.15

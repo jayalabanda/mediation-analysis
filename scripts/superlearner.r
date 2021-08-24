@@ -550,7 +550,7 @@ iptw_direct_indirect <- function(data, sl_library) {
 
 #### Rudolph article: TMLE
 set.seed(42)
-n_sim <- 100
+n_sim <- 10
 idx <- sample(1:1000, n_sim)
 file_path <- "../Data/simulations_rudolph/"
 
