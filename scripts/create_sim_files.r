@@ -171,7 +171,7 @@ bin_to_quant <- function(x) {
 
 file_path <- "../Data/quantitative_simulations/"
 for (i in 1:1000) {
-  data <- gen_data_time_varying_l(n = 10000, a_m_inter = 0)
+  data <- gen_data_time_varying_l(n = 5000, a_m_inter = 0)
   data[, 1] <- bin_to_quant(data[, 1])
   data[, 2] <- bin_to_quant(data[, 2])
 

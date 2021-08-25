@@ -5,6 +5,16 @@ library(speedglm)
 library(medoutcon)
 library(tidyverse)
 
+libs <- c(
+  "SL.glm", "SL.glm.interaction", "SL.ranger",
+  "SL.bayesglm", "SL.lm", "SL.speedlm"
+)
+learners <- c(sl3::Lrnr_bayesglm$new(), sl3::Lrnr_glm_fast$new(), sl3::Lrnr_ranger$new())
+
+set.seed(42)
+n_sim <- 50
+idx <- sample(1:1000, n_sim)
+
 file_path <- "../Data/"
 data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
 data <- subset(data, select = -c(Y_qol))
@@ -204,8 +214,10 @@ estimate_rudolph <- function(data, sl_library) {
   c <- I(tmpdat$m) == 0
   tmpdat$h_a1_gm_a0 <- ((b * gm_a0 + c * (1 - gm_a0)) / sl_psm) * pred_ps_a1
 
-  y <- tmpdat$y
-  epsilon_a1_gm_a0 <- mean(y)
+  epsilon_a1_gm_a0 <- coef(glm(y ~ 1,
+    weights = h_a1_gm_a0, offset = qlogis(qyinit[, 1]),
+    family = "quasibinomial", data = tmpdat
+  ))
 
   tmpdat$qyup_m0_a1_gm_a0 <- plogis(qlogis(tmpdat$qyinit[, 2]) + epsilon_a1_gm_a0)
   tmpdat$qyup_m1_a1_gm_a0 <- plogis(qlogis(tmpdat$qyinit[, 3]) + epsilon_a1_gm_a0)
@@ -216,6 +228,7 @@ estimate_rudolph <- function(data, sl_library) {
   y <- df[df$a == 1, ]$q_a1_gm_a0
   x <- subset(tmpdat, select = -c(q_a1_gm_a0))
   x <- subset(x, a == 1, select = c("w1", "w2"))
+
   q_a1_g0_fit <- SuperLearner(y, x,
     family = "quasibinomial",
     SL.library = sl_library
@@ -223,8 +236,10 @@ estimate_rudolph <- function(data, sl_library) {
   q_a1_g0 <- predict(q_a1_g0_fit, newdata = tmpdat, type = "response")
 
   # Necessary if A is non random
-  y <- tmpdat$q_a1_gm_a0
-  epsilon_z_a1_gm_a0 <- mean(y)
+  epsilon_z_a1_gm_a0 <- coef(glm(q_a1_gm_a0 ~ 1,
+    weights = pred_ps_a1, offset = qlogis(q_a1_g0$pred),
+    family = "quasibinomial", data = tmpdat
+  ))
 
   q_zup_a1_gm_a0 <- plogis(qlogis(q_a1_g0$pred) + epsilon_z_a1_gm_a0)
 
@@ -237,8 +252,10 @@ estimate_rudolph <- function(data, sl_library) {
   b <- tmpdat$m
   tmpdat$h_a0_gm_a0 <- ((b * gm_a0 + (1 - b) * (1 - gm_a0)) / sl_psm) * pred_ps_a0
 
-  y <- tmpdat$y
-  epsilon_a0_gm_a0 <- mean(y)
+  epsilon_a0_gm_a0 <- coef(glm(y ~ 1,
+    weights = h_a0_gm_a0, offset = qlogis(qyinit[, 1]),
+    family = "quasibinomial", data = tmpdat
+  ))
 
   tmpdat$qyup_m0_a0_gm_a0 <- plogis(qlogis(tmpdat$qyinit[, 2]) + epsilon_a0_gm_a0)
   tmpdat$qyup_m1_a0_gm_a0 <- plogis(qlogis(tmpdat$qyinit[, 3]) + epsilon_a0_gm_a0)
@@ -249,6 +266,7 @@ estimate_rudolph <- function(data, sl_library) {
   y <- df[df$a == 0, ]$q_a0_gm_a0
   x <- subset(tmpdat, select = -c(q_a0_gm_a0))
   x <- subset(x, a == 0, select = c("w1", "w2"))
+
   q_a0_g0_fit <- SuperLearner(y, x,
     family = "quasibinomial",
     SL.library = sl_library
@@ -256,8 +274,10 @@ estimate_rudolph <- function(data, sl_library) {
   q_a0_g0 <- predict(q_a0_g0_fit, newdata = tmpdat, type = "response")
 
   # Necessary if A is non random
-  y <- tmpdat$q_a0_gm_a0
-  epsilon_z_a0_gm_a0 <- mean(y)
+  epsilon_z_a0_gm_a0 <- coef(glm(q_a0_gm_a0 ~ 1,
+    weights = pred_ps_a0, offset = qlogis(q_a0_g0$pred),
+    family = "quasibinomial", data = tmpdat
+  ))
 
   q_zup_a0_gm_a0 <- plogis(qlogis(q_a0_g0$pred) + epsilon_z_a0_gm_a0)
 
@@ -269,8 +289,10 @@ estimate_rudolph <- function(data, sl_library) {
   # ----------------------------
   tmpdat$h_a1_gm_a1 <- ((b * gm_a1 + (1 - b) * (1 - gm_a1)) / sl_psm) * pred_ps_a1
 
-  y <- tmpdat$y
-  epsilon_a1_gm_a1 <- mean(y)
+  epsilon_a1_gm_a1 <- coef(glm(y ~ 1,
+    weights = h_a1_gm_a1, offset = qlogis(qyinit[, 1]),
+    family = "quasibinomial", data = tmpdat
+  ))
 
   tmpdat$qyup_m0_a1_gm_a1 <- plogis(qlogis(tmpdat$qyinit[, 2]) + epsilon_a1_gm_a1)
   tmpdat$qyup_m1_a1_gm_a1 <- plogis(qlogis(tmpdat$qyinit[, 3]) + epsilon_a1_gm_a1)
@@ -281,6 +303,7 @@ estimate_rudolph <- function(data, sl_library) {
   y <- df[df$a == 1, ]$q_a1_gm_a1
   x <- subset(tmpdat, select = -c(q_a1_gm_a1))
   x <- subset(x, a == 1, select = c("w1", "w2"))
+
   q_a1_g1_fit <- SuperLearner(y, x,
     family = "quasibinomial",
     SL.library = sl_library
@@ -288,8 +311,10 @@ estimate_rudolph <- function(data, sl_library) {
   q_a1_g1 <- predict(q_a1_g1_fit, newdata = tmpdat, type = "response")
 
   # Necessary if A is non random
-  y <- tmpdat$q_a1_gm_a1
-  epsilon_z_a1_gm_a1 <- mean(y)
+  epsilon_z_a1_gm_a1 <- coef(glm(q_a1_gm_a1 ~ 1,
+    weights = pred_ps_a1, offset = qlogis(q_a1_g1$pred),
+    family = "quasibinomial", data = tmpdat
+  ))
 
   q_zup_a1_gm_a1 <- plogis(qlogis(q_a1_g1$pred) + epsilon_z_a1_gm_a1)
 
@@ -393,63 +418,6 @@ results$sie
 # [1] 0.007735236
 
 
-## Second Rudolph article (complex data)
-libs <- c(
-  "SL.glm", "SL.glm.interaction", "SL.ranger",
-  "SL.bayesglm", "SL.lm", "SL.speedlm"
-)
-
-expit <- function(x) {
-  return(1 / (1 + exp(-x)))
-}
-
-set.seed(1000)
-n <- 10000
-w1 <- rbinom(n, 1, 0.6)
-w2 <- rbinom(n, 1, 0.3)
-w3 <- rbinom(n, 1, 0.2 + (w1 + w2) / 3)
-a <- rbinom(n, 1, expit(0.25 * (w1 + w2 + w3) + 3 * w1 * w2 - 2))
-z <- rbinom(n, 1, expit((w1 + w2 + w3) / 3 - a - a * w3 - 0.25))
-m <- rbinom(n, 1, expit(w1 + w2 + a - z + a * z - 0.3 * a * w2))
-y <- rbinom(n, 1, expit((a - z + m - a * z) / (w1 + w2 + w3 + 1)))
-
-data <- data.frame(w1, w2, w3, a, z, m, y)
-head(data)
-
-for (i in seq_len(length(libs))) {
-  results <- estimate_rudolph(data, libs[i])
-
-  print(libs[i])
-  print(results$sde)
-  print(results$sie)
-  cat("\n")
-}
-
-# [1] "SL.glm"
-# [1] 0.06847186
-# [1] 0.01745772
-
-# [1] "SL.glm.interaction"
-# [1] 0.07081532
-# [1] 0.02064118
-
-# [1] "SL.ranger"
-# [1] 0.06065914
-# [1] 0.01387153
-
-# [1] "SL.bayesglm"
-# [1] 0.06843686
-# [1] 0.01744127
-
-# [1] "SL.lm"
-# [1] 0.06821203
-# [1] 0.01561308
-
-# [1] "SL.speedlm"
-# [1] 0.06821203
-# [1] 0.01589346
-
-
 ### Medoutcon (one-step)
 ind_dir_effects_medoutcon <- function(data, w_names, m_names, learner) {
   dir_os <- medoutcon(
@@ -547,11 +515,10 @@ iptw_direct_indirect <- function(data, sl_library) {
   return(list(iptw_edn = iptw_edn, iptw_ein = iptw_ein))
 }
 
+## Save results
+save_path <- "./Results/estimates/"
 
 #### Rudolph article: TMLE
-set.seed(42)
-n_sim <- 10
-idx <- sample(1:1000, n_sim)
 file_path <- "../Data/simulations_rudolph/"
 
 results_sde <- matrix(nrow = n_sim, ncol = length(libs))
@@ -573,8 +540,8 @@ for (i in 1:n_sim) {
 results_sde
 results_sie
 
-write.csv(results_sde, paste(file_path, "results_sde_SL_rud.csv"), row.names = FALSE)
-write.csv(results_sie, paste(file_path, "results_sie_SL_rud.csv"), row.names = FALSE)
+write.csv(results_sde, paste(save_path, "estimates_sde_SL_rud.csv"), row.names = FALSE)
+write.csv(results_sie, paste(save_path, "estimates_sie_SL_rud.csv"), row.names = FALSE)
 
 boxplot(results_sde)
 boxplot(results_sie)
@@ -602,8 +569,8 @@ for (i in 1:n_sim) {
 results_sde
 results_sie
 
-write.csv(results_sde, paste(file_path, "results_sde_SL.csv"), row.names = FALSE)
-write.csv(results_sie, paste(file_path, "results_sie_SL.csv"), row.names = FALSE)
+write.csv(results_sde, paste(save_path, "estimates_sde_SL.csv"), row.names = FALSE)
+write.csv(results_sie, paste(save_path, "estimates_sie_SL.csv"), row.names = FALSE)
 
 boxplot(results_sde)
 boxplot(results_sie)
@@ -633,8 +600,8 @@ for (i in 1:n_sim) {
 results_sde
 results_sie
 
-write.csv(results_sde, paste(file_path, "results_sde_posit.csv"), row.names = FALSE)
-write.csv(results_sie, paste(file_path, "results_sie_posit.csv"), row.names = FALSE)
+write.csv(results_sde, paste(save_path, "estimates_sde_posit.csv"), row.names = FALSE)
+write.csv(results_sie, paste(save_path, "estimates_sie_posit.csv"), row.names = FALSE)
 
 boxplot(results_sde)
 boxplot(results_sie)
@@ -642,7 +609,6 @@ boxplot(results_sie)
 
 #### Medoutcon (One-step)
 file_path <- "../Data/new_simulations/"
-learners <- c(sl3::Lrnr_bayesglm$new(), sl3::Lrnr_glm_fast$new(), sl3::Lrnr_ranger$new())
 
 results_sde <- matrix(nrow = n_sim, ncol = length(learners))
 results_sie <- matrix(nrow = n_sim, ncol = length(learners))
@@ -669,8 +635,8 @@ for (i in 1:n_sim) {
 results_sde
 results_sie
 
-write.csv(results_sde, paste(file_path, "results_sde_posi_moc.csv"), row.names = FALSE)
-write.csv(results_sie, paste(file_path, "results_sie_posi_moc.csv"), row.names = FALSE)
+write.csv(results_sde, paste(save_path, "estimates_sde_posi_moc.csv"), row.names = FALSE)
+write.csv(results_sie, paste(save_path, "estimates_sie_posi_moc.csv"), row.names = FALSE)
 
 boxplot(results_sde)
 boxplot(results_sie)
@@ -701,8 +667,8 @@ for (i in 1:n_sim) {
 results_sde
 results_sie
 
-write.csv(results_sde, paste(file_path, "results_sde_posit_iptw.csv"), row.names = FALSE)
-write.csv(results_sie, paste(file_path, "results_sie_posit_iptw.csv"), row.names = FALSE)
+write.csv(results_sde, paste(save_path, "estimates_sde_posit_iptw.csv"), row.names = FALSE)
+write.csv(results_sie, paste(save_path, "estimates_sie_posit_iptw.csv"), row.names = FALSE)
 
 boxplot(results_sde)
 boxplot(results_sie)
@@ -733,8 +699,8 @@ for (i in 1:n_sim) {
 results_sde
 results_sie
 
-write.csv(results_sde, paste(file_path, "results_sde_posit_iptw.csv"), row.names = FALSE)
-write.csv(results_sie, paste(file_path, "results_sie_posit_iptw.csv"), row.names = FALSE)
+write.csv(results_sde, paste(save_path, "estimates_sde_posit_quant_iptw.csv"), row.names = FALSE)
+write.csv(results_sie, paste(save_path, "estimates_sie_posit_quant_iptw.csv"), row.names = FALSE)
 
 boxplot(results_sde)
 boxplot(results_sie)

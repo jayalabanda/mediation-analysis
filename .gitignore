@@ -1,7 +1,6 @@
 .ipynb_checkpoints/
 *.csv
 *.txt
-*.png
 reprochainrdv/
 *.pdf
 .lintr
