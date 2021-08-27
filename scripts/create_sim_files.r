@@ -181,3 +181,15 @@ for (i in 1:1000) {
   )
   rm(data)
 }
+
+file_path <- "../Data/quant_confounding_simulations/"
+for (i in 1:1000) {
+  data <- gen_data_time_varying_l(n = 5000, a_m_inter = 0)
+  data[, 4] <- bin_to_quant(data[, 4])
+
+  write.csv(data,
+    file = paste0(file_path, "data_", i, ".csv"),
+    row.names = FALSE
+  )
+  rm(data)
+}

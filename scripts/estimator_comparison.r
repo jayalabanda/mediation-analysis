@@ -1,3 +1,6 @@
+library(medoutcon)
+library(stringr)
+
 ### g-computation
 estimate_manual <- function(data, ymodel, mmodel, l_a_model) {
   tempdat <- data
@@ -54,9 +57,9 @@ estimate_manual <- function(data, ymodel, mmodel, l_a_model) {
 ### IPTW
 iptw_direct_indirect <- function(data) {
   g_a <- glm(a ~ 1, family = "binomial", data = data)
-  g_a_l0 <- glm(a ~ w1 + w1, family = "binomial", data = data)
+  g_a_l0 <- glm(a ~ w1 + w2 + w3, family = "binomial", data = data)
   g_m_a <- glm(m ~ a, family = "binomial", data = data)
-  g_m_l <- glm(m ~ w1 + w1 + a + z, family = "binomial", data = data)
+  g_m_l <- glm(m ~ w1 + w2 + w3 + a + z, family = "binomial", data = data)
 
   pred_g1_a <- predict(g_a, type = "response")
   pred_g0_a <- 1 - pred_g1_a
@@ -86,22 +89,25 @@ iptw_direct_indirect <- function(data) {
     family = "gaussian",
     data = data, weights = sw
   )
-  msm_m <- glm(m ~ a + w1 + w1, family = "binomial", data = data)
+  msm_m <- glm(m ~ a + w1 + w2 + w3, family = "binomial", data = data)
 
   iptw_edn_l0 <- msm_y$coefficients["a"] +
     (msm_y$coefficients["a:m"] *
       plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
         msm_m$coefficients["w1"] * data$w1 +
-        msm_m$coefficients["w1"] * data$w1))
+        msm_m$coefficients["w2"] * data$w2 +
+        msm_m$coefficients["w3"] * data$w3))
 
   iptw_ein_l0 <- (msm_y$coefficients["m"] + msm_y$coefficients["a:m"]) *
     (plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
       msm_m$coefficients["a"] +
       msm_m$coefficients["w1"] * data$w1 +
-      msm_m$coefficients["w1"] * data$w1) -
+      msm_m$coefficients["w2"] * data$w2 +
+      msm_m$coefficients["w3"] * data$w3) -
       plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
         msm_m$coefficients["w1"] * data$w1 +
-        msm_m$coefficients["w1"] * data$w1))
+        msm_m$coefficients["w2"] * data$w2 +
+        msm_m$coefficients["w3"] * data$w3))
 
   iptw_edn <- mean(iptw_edn_l0)
   iptw_ein <- mean(iptw_ein_l0)
@@ -115,9 +121,6 @@ iptw_direct_indirect <- function(data) {
 
 #### TMLE
 tmle_direct_indirect <- function(data, w_names, m_names) {
-  require(medoutcon)
-  require(tidyverse)
-
   w_names <- str_subset(colnames(data), "w")
   m_names <- str_subset(colnames(data), "m")
 
@@ -154,9 +157,6 @@ tmle_direct_indirect <- function(data, w_names, m_names) {
 
 #### one-step
 onestep_direct_indirect <- function(data) {
-  require(medoutcon)
-  require(tidyverse)
-
   w_names <- str_subset(colnames(data), "w")
   m_names <- str_subset(colnames(data), "m")
 
@@ -195,16 +195,16 @@ onestep_direct_indirect <- function(data) {
 true_sde <- 0.064
 true_sie <- 0.0112
 
-ymodel <- "y ~ w1 + w2 + a + z + m"
-mmodel <- "m ~ w1 + w2 + a"
-l_a_model <- "w1 + w2 + a"
+ymodel <- "y ~ w1 + w2 + w3 + a + z + m"
+mmodel <- "m ~ w1 + w2 + w3 + a"
+l_a_model <- "w1 + w2 + w3 + a"
 
 file_path <- "../Data/"
 results_path <- "./Results/"
-sim_path <- "simulations/"
+sim_path <- "quantitative_simulations/"
 
 set.seed(42)
-n_sim <- 250
+n_sim <- 500
 idx <- sample(1:1000, n_sim)
 
 
@@ -219,12 +219,19 @@ get_bias_estimates <- function(n_sim, path, FUN = NULL, ...) { # nolint
     }
 
     data <- read.csv(paste0(path, "data_", idx[i], ".csv", sep = ""))
-    data <- subset(data, select = -y_qol)
-    colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
 
-    results <- FUN(data, ...)
-    bias_estimates[i, "SDE"] <- results[1] - true_sde
-    bias_estimates[i, "SIE"] <- results[2] - true_sie
+    if (!str_detect(path, "rudolph")) {
+      data <- subset(data, select = -y_qol)
+      colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
+
+      results <- FUN(data, ...)
+      bias_estimates[i, "SDE"] <- results[1] - true_sde
+      bias_estimates[i, "SIE"] <- results[2] - true_sie
+    } else {
+      results <- FUN(data, ...)
+      bias_estimates[i, "SDE"] <- results[1]
+      bias_estimates[i, "SIE"] <- results[2]
+    }
   }
 
   return(as.data.frame(bias_estimates))
@@ -240,7 +247,7 @@ plot_bias_estimates <- function(bias_estimates) {
     col = "steelblue2",
     border = "black"
   )
-  abline(h = 0, col = "black", lty = "dashed")
+  # abline(h = 0, col = "black", lty = "dashed")
 
   # SIE
   boxplot(bias_estimates$SIE,
@@ -249,19 +256,9 @@ plot_bias_estimates <- function(bias_estimates) {
     col = "steelblue2",
     border = "black"
   )
-  abline(h = 0, col = "black", lty = "dashed")
+  # abline(h = 0, col = "black", lty = "dashed")
 }
 
-# Plot final results
-plot_comparison <- function(biases) {
-  boxplot(biases,
-    main = "Biases",
-    ylab = "Bias",
-    col = "steelblue2",
-    border = "black"
-  )
-  abline(h = 0, col = "black", lty = "dashed")
-}
 
 ## g-comp
 bias_estimates_gcomp <- get_bias_estimates(
@@ -273,7 +270,7 @@ plot_bias_estimates(bias_estimates_gcomp)
 
 write.csv(
   bias_estimates_gcomp,
-  paste0(results_path, "comparisons/", "biases_gcomp_", n_sim, ".csv", sep = ""),
+  paste0(results_path, "comparisons/", "biases_gcomp_rud_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 
@@ -286,7 +283,7 @@ plot_bias_estimates(bias_estimates_iptw)
 
 write.csv(
   bias_estimates_iptw,
-  paste(results_path, "comparisons/", "biases_iptw_", n_sim, ".csv", sep = ""),
+  paste(results_path, "comparisons/", "biases_iptw_rud_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 
@@ -299,7 +296,7 @@ plot_bias_estimates(bias_estimates_tmle)
 
 write.csv(
   bias_estimates_tmle,
-  paste(results_path, "comparisons/", "biases_tmle_", n_sim, ".csv", sep = ""),
+  paste(results_path, "comparisons/", "biases_tmle_rud_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 
@@ -312,27 +309,37 @@ plot_bias_estimates(bias_estimates_onestep)
 
 write.csv(
   bias_estimates_onestep,
-  paste(results_path, "comparisons/", "biases_onestep_", n_sim, ".csv", sep = ""),
+  paste(results_path, "comparisons/", "biases_onestep_rud_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 
 
 ### Final comparison
+# Plot final results
+plot_comparison <- function(biases) {
+  boxplot(biases,
+    main = "Biases",
+    ylab = "Bias",
+    col = "steelblue2",
+    border = "black"
+  )
+  abline(h = 0, col = "black", lty = "dashed")
+}
 
-n_sim <- 1000
 results_path <- "./Results/"
+n_sim <- 750
 
 bias_estimates_gcomp <- read.csv(
-  paste(results_path, "comparisons/", "biases_gcomp_", n_sim, ".csv", sep = "")
+  paste(results_path, "comparisons/", "biases_gcomp_quant_", n_sim, ".csv", sep = "")
 )
 bias_estimates_iptw <- read.csv(
-  paste(results_path, "comparisons/", "biases_iptw_", n_sim, ".csv", sep = "")
+  paste(results_path, "comparisons/", "biases_iptw_quant_", n_sim, ".csv", sep = "")
 )
 bias_estimates_tmle <- read.csv(
-  paste(results_path, "comparisons/", "biases_tmle_", n_sim, ".csv", sep = "")
+  paste(results_path, "comparisons/", "biases_tmle_quant_", n_sim, ".csv", sep = "")
 )
 bias_estimates_onestep <- read.csv(
-  paste(results_path, "comparisons/", "biases_onestep_", n_sim, ".csv", sep = "")
+  paste(results_path, "comparisons/", "biases_onestep_quant_", n_sim, ".csv", sep = "")
 )
 
 # SDE
@@ -346,7 +353,7 @@ sde_biases[, 4] <- bias_estimates_onestep$SDE
 
 write.csv(
   sde_biases,
-  paste(results_path, "comparisons/", "biases_sde_", n_sim, ".csv", sep = ""),
+  paste(results_path, "comparisons/", "biases_sde_quant_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 
@@ -361,7 +368,7 @@ sie_biases[, 4] <- bias_estimates_onestep$SIE
 
 write.csv(
   sie_biases,
-  paste(results_path, "comparisons/", "biases_sie_", n_sim, ".csv", sep = ""),
+  paste(results_path, "comparisons/", "biases_sie_quant_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 
