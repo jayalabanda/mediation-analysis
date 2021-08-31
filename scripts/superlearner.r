@@ -24,10 +24,9 @@ head(data)
 ## Estimation manuelle (g-comp)
 estimate_manual <- function(data, sl_library) {
   tempdat <- data
-  colnames(tempdat) <- c("w1", "w2", "w3", "a", "z", "m", "y")
 
   y <- tempdat$m
-  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "a"))
   g_m_model <- SuperLearner(y, x,
     family = binomial(),
     SL.library = sl_library
@@ -66,14 +65,14 @@ estimate_manual <- function(data, sl_library) {
   tempdat$q_gamma_a0 <- q_preds_m1 * g_m_0$pred + q_preds_m0 * (1 - g_m_0$pred)
 
   y <- tempdat$q_gamma_a1
-  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "a"))
   q_model_a1 <- SuperLearner(y, x,
     family = "quasibinomial",
     SL.library = sl_library
   )
 
   y <- tempdat$q_gamma_a0
-  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "a"))
   q_model_a0 <- SuperLearner(y, x,
     family = "quasibinomial",
     SL.library = sl_library
@@ -141,8 +140,6 @@ results
 ## Article Kara E. Rudolph (TMLE)
 estimate_rudolph <- function(data, sl_library) {
   obsdat <- data
-  colnames(obsdat) <- c("w1", "w2", "a", "z", "m", "y")
-
   tmpdat <- obsdat
   dfa1 <- dfa0 <- dfm1 <- dfm0 <- obsdat
 

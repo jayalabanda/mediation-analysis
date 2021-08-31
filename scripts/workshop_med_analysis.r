@@ -84,13 +84,6 @@ data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
 data <- subset(data, select = -c(Y_qol)) # remove Y_qol
 head(data)
 
-# function to convert binary vector to quantitative
-bin_to_quant <- function(x) {
-  x[x == 0] <- runif(1, min = 0, max = 0.5)
-  x[x == 1] <- runif(1, min = 0.5, max = 1)
-  return(x)
-}
-
 # Y_{1, G_0} : A = 1, M = G_0
 # Y_{0, G_0} : A = 0, M = G_0
 # Y_{1, G_1} : A = 1, M = G_1
@@ -98,21 +91,23 @@ bin_to_quant <- function(x) {
 # Int. indirect effect : E[Y_{1, G_1} - Y_{1, G_0}]
 # Int. direct effect : E[Y_{1, G_0} - Y_{0, G_0}]
 
+library(stringr)
+
 workshop_estimates <- function(data) {
-  w1 <- data$w1
-  w2 <- data$w2
+  w_names <- str_subset(colnames(data), "w")
+  w <- as.matrix(data[, w_names])
   a <- data$a
   z <- data$z
   m <- data$m
   y <- data$y
 
   # (a, a') = (1, 0)
-  lm_y <- lm(y ~ m + a + z + w1 + w2)
+  lm_y <- lm(y ~ m + a + z + w)
   pred_a1z0 <- predict(lm_y,
-    newdata = data.frame(m = m, a = 1, z = 0, w1 = w1, w2 = w2)
+    newdata = data.frame(m = m, a = 1, z = 0, w = w)
   )
   pred_a1z1 <- predict(lm_y,
-    newdata = data.frame(m = m, a = 1, z = 1, w1 = w1, w2 = w2)
+    newdata = data.frame(m = m, a = 1, z = 1, w = w)
   )
 
   prob_z <- lm(z ~ a)
@@ -120,20 +115,20 @@ workshop_estimates <- function(data) {
 
   pseudo_out_1_0 <- pred_a1z0 * (1 - pred_z) + pred_a1z1 * pred_z
 
-  fit_pseudo <- lm(pseudo_out_1_0 ~ a + w1 + w2)
+  fit_pseudo <- lm(pseudo_out_1_0 ~ a + w)
   pred_pseudo_1_0 <- predict(fit_pseudo,
-    newdata = data.frame(a = 0, w1 = w1, w2 = w2)
+    newdata = data.frame(a = 0, w = w)
   )
 
   res_1_0 <- mean(pred_pseudo_1_0)
 
   # (a, a') = (1, 1)
-  lm_y <- lm(y ~ m + a + z + w1 + w2)
+  lm_y <- lm(y ~ m + a + z + w)
   pred_a1z0 <- predict(lm_y,
-    newdata = data.frame(m = m, a = 1, z = 0, w1 = w1, w2 = w2)
+    newdata = data.frame(m = m, a = 1, z = 0, w = w)
   )
   pred_a1z1 <- predict(lm_y,
-    newdata = data.frame(m = m, a = 1, z = 1, w1 = w1, w2 = w2)
+    newdata = data.frame(m = m, a = 1, z = 1, w = w)
   )
 
   prob_z <- lm(z ~ a)
@@ -141,20 +136,20 @@ workshop_estimates <- function(data) {
 
   pseudo_out_1_1 <- pred_a1z0 * (1 - pred_z) + pred_a1z1 * pred_z
 
-  fit_pseudo <- lm(pseudo_out_1_1 ~ a + w1 + w2)
+  fit_pseudo <- lm(pseudo_out_1_1 ~ a + w)
   pred_pseudo_1_1 <- predict(fit_pseudo,
-    newdata = data.frame(a = 1, w1 = w1, w2 = w2)
+    newdata = data.frame(a = 1, w = w)
   )
 
   res_1_1 <- mean(pred_pseudo_1_1)
 
   # (a, a') = (0, 0)
-  lm_y <- lm(y ~ m + a + z + w1 + w2)
+  lm_y <- lm(y ~ m + a + z + w)
   pred_a0z0 <- predict(lm_y,
-    newdata = data.frame(m = m, a = 0, z = 0, w1 = w1, w2 = w2)
+    newdata = data.frame(m = m, a = 0, z = 0, w = w)
   )
   pred_a0z1 <- predict(lm_y,
-    newdata = data.frame(m = m, a = 0, z = 1, w1 = w1, w2 = w2)
+    newdata = data.frame(m = m, a = 0, z = 1, w = w)
   )
 
   prob_z <- lm(z ~ a)
@@ -162,16 +157,19 @@ workshop_estimates <- function(data) {
 
   pseudo_out_0_0 <- pred_a0z0 * (1 - pred_z) + pred_a0z1 * pred_z
 
-  fit_pseudo <- lm(pseudo_out_0_0 ~ a + w1 + w2)
+  fit_pseudo <- lm(pseudo_out_0_0 ~ a + w)
   pred_pseudo_0_0 <- predict(fit_pseudo,
-    newdata = data.frame(a = 0, w1 = w1, w2 = w2)
+    newdata = data.frame(a = 0, w = w)
   )
 
   res_0_0 <- mean(pred_pseudo_0_0)
 
-  return(list(
-    ind_effect = res_1_1 - res_1_0,
-    dir_effect = res_1_0 - res_0_0
+  dir_effect <- res_1_0 - res_0_0
+  ind_effect <- res_1_1 - res_1_0
+
+  return(c(
+    dir_effect,
+    ind_effect
   ))
 }
 
@@ -189,8 +187,8 @@ res
 ## Bootstrap
 n_sim <- 500
 n_boot <- 500
-true_sde <- 0.0625841
-true_sie <- 0.009845864
+true_sde <- 0.0624
+true_sie <- 0.0112
 sim_data_path <- "../Data/simulations/"
 
 # Direct effect
@@ -457,3 +455,52 @@ write.csv(
 # 1   0.01118948 0.001343612 3.206816e-06 0.001790758 0.7503035 5.01211e-06
 #    av.est.std coverage
 # 1 0.001837824     0.91
+
+
+
+#### Biases
+file_path <- "../Data/"
+sim_path <- "new_simulations/"
+
+true_sde <- 0.064
+true_sie <- 0.0112
+
+set.seed(42)
+n_sim <- 500
+idx <- sample(1:1000, size = n_sim)
+
+bias_estimates <- matrix(nrow = n_sim, ncol = 2)
+colnames(bias_estimates) <- c("SDE", "SIE")
+
+for (i in 1:n_sim) {
+  if (i %% 10 == 0 | i == 1) {
+    print(paste0("Simulation ", i, " of ", n_sim))
+  }
+
+  data <- read.csv(paste0(file_path, sim_path, "data_", idx[i], ".csv", sep = ""))
+  if (!str_detect(sim_path, "rudolph")) {
+    data <- subset(data, select = -y_qol)
+    colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
+
+    res <- workshop_estimates(data)
+    bias_estimates[i, 1] <- res[1] - true_sde
+    bias_estimates[i, 2] <- res[2] - true_sie
+  } else {
+    res <- workshop_estimates(data)
+    bias_estimates[i, 1] <- res[1]
+    bias_estimates[i, 2] <- res[2]
+  }
+}
+
+boxplot(bias_estimates)
+abline(h = 0, col = ifelse(!str_detect(sim_path, "rudolph"), "black", NA))
+
+mean(bias_estimates[, 1])
+mean(bias_estimates[, 2])
+
+# [1] -0.0002119083
+# [1] 6.550189e-05
+
+# Rudolph
+# [1] 0.09879082
+# [1] 0.03257756
