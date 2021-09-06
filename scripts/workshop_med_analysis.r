@@ -460,13 +460,16 @@ write.csv(
 
 #### Biases
 file_path <- "../Data/"
-sim_path <- "new_simulations/"
+sim_path <- "simulations_inter/"
 
 true_sde <- 0.064
 true_sie <- 0.0112
 
+true_sde_inter <- 0.073882
+true_sie_inter <- 0.0154
+
 set.seed(42)
-n_sim <- 500
+n_sim <- 100
 idx <- sample(1:1000, size = n_sim)
 
 bias_estimates <- matrix(nrow = n_sim, ncol = 2)
@@ -477,12 +480,16 @@ for (i in 1:n_sim) {
     print(paste0("Simulation ", i, " of ", n_sim))
   }
 
-  data <- read.csv(paste0(file_path, sim_path, "data_", idx[i], ".csv", sep = ""))
+  data <- read.csv(paste0(file_path, sim_path, "data_", idx[i], ".csv"))
   if (!str_detect(sim_path, "rudolph")) {
     data <- subset(data, select = -y_qol)
     colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
 
     res <- workshop_estimates(data)
+    if (str_detect(sim_path, "inter")) {
+      bias_estimates[i, 1] <- res[1] - true_sde_inter
+      bias_estimates[i, 2] <- res[2] - true_sie_inter
+    }
     bias_estimates[i, 1] <- res[1] - true_sde
     bias_estimates[i, 2] <- res[2] - true_sie
   } else {
@@ -501,6 +508,60 @@ mean(bias_estimates[, 2])
 # [1] -0.0002119083
 # [1] 6.550189e-05
 
-# Rudolph
+# Modèle Rudolph
 # [1] 0.09879082
 # [1] 0.03257756
+
+write.csv(
+  bias_estimates,
+  paste0("./Results/estimates/", "estimates_rud_interaction_", n_sim, ".csv"),
+  row.names = FALSE
+)
+
+# SDE
+par(mfrow = c(1, 5))
+n_sims <- c(100, 250, 500, 750, 1000)
+for (n_sim in n_sims) {
+  bias_estimates <- read.csv(
+    paste0("./Results/estimates/", "estimates_rud_interaction_", n_sim, ".csv")
+  )
+  boxplot(bias_estimates[, 1])
+}
+
+# SIE
+par(mfrow = c(1, 5))
+n_sims <- c(100, 250, 500, 750, 1000)
+for (n_sim in n_sims) {
+  bias_estimates <- read.csv(
+    paste0("./Results/estimates/", "estimates_rud_interaction_", n_sim, ".csv")
+  )
+  boxplot(bias_estimates[, 2])
+}
+
+bias_100 <- read.csv(paste0("./Results/estimates/", "estimates_rud_interaction_", 100, ".csv"))
+bias_250 <- read.csv(paste0("./Results/estimates/", "estimates_rud_interaction_", 250, ".csv"))
+bias_500 <- read.csv(paste0("./Results/estimates/", "estimates_rud_interaction_", 500, ".csv"))
+bias_750 <- read.csv(paste0("./Results/estimates/", "estimates_rud_interaction_", 750, ".csv"))
+bias_1000 <- read.csv(paste0("./Results/estimates/", "estimates_rud_interaction_", 1000, ".csv"))
+
+test <- matrix(nrow = 2600, ncol = 3)
+colnames(test) <- c("x", "SDE", "n_sim")
+
+test[, 1] <- seq(1, 2600)
+
+test[1:100, 2] <- bias_100[, 1]
+test[101:350, 2] <- bias_250[, 1]
+test[351:850, 2] <- bias_500[, 1]
+test[851:1600, 2] <- bias_750[, 1]
+test[1601:2600, 2] <- bias_1000[, 1]
+
+test[1:100, 3] <- rep(100, 100)
+test[101:350, 3] <- rep(250, 250)
+test[351:850, 3] <- rep(500, 500)
+test[851:1600, 3] <- rep(750, 750)
+test[1601:2600, 3] <- rep(1000, 1000)
+
+test <- as.data.frame(test)
+
+ggplot(test, aes(x, SDE, group = n_sim, fill = n_sim)) +
+  geom_boxplot()
