@@ -3,7 +3,7 @@ estimate_manual <- function(data, inter, sl_library) {
   tempdat <- data
 
   y <- tempdat$m
-  x <- subset(tempdat, select = c("w1", "w2", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
   g_m_model <- SuperLearner(y, x,
     family = binomial(),
     SL.library = sl_library
@@ -45,16 +45,18 @@ estimate_manual <- function(data, inter, sl_library) {
   tempdat$q_gamma_a0 <- q_preds_m1 * g_m_0$pred + q_preds_m0 * (1 - g_m_0$pred)
 
   y <- tempdat$q_gamma_a1
-  x <- subset(tempdat, select = c("w1", "w2", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
   q_model_a1 <- SuperLearner(y, x,
-    family = "quasibinomial",
+    # family = "quasibinomial"
+    family = binomial(),
     SL.library = sl_library
   )
 
   y <- tempdat$q_gamma_a0
-  x <- subset(tempdat, select = c("w1", "w2", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
   q_model_a0 <- SuperLearner(y, x,
-    family = "quasibinomial",
+    # family = "quasibinomial",
+    family = binomial(),
     SL.library = sl_library
   )
 
@@ -477,12 +479,8 @@ iptw_direct_indirect <- function(data, inter, sl_library) {
 #   "SL.bayesglm", "SL.speedlm"
 # )
 
-libs <- c(
-  "SL.glm", "SL.glm.interaction",
-  "SL.bayesglm", "SL.lm", "SL.mean"
-)
-
 # libs <- c("SL.mean", "SL.earth", "SL.step.interaction")
+libs <- c("SL.mean")
 
 learners <- c(
   sl3::Lrnr_bayesglm$new(), sl3::Lrnr_glm_fast$new(),
@@ -505,9 +503,9 @@ true_sie_inter <- 0.0154
 
 file_path <- "../Data/"
 results_path <- "./Results/"
-sim_path <- "quantitative_simulations/"
-sim_folder <- "sl_comparisons/"
-n_sim <- 100
+sim_path <- "simulations_rudolph/"
+sim_folder <- "sl_comparisons_new/"
+n_sim <- 500
 
 
 # Get bias estimates from files
@@ -589,11 +587,11 @@ colnames(gcomp_sl_sde_estimates) <- libs
 colnames(gcomp_sl_sie_estimates) <- libs
 
 write.csv(gcomp_sl_sde_estimates,
-  paste(results_path, sim_folder, "gcomp_sde_", n_sim, ".csv", sep = ""),
+  paste(results_path, sim_folder, "gcomp_sde_rud_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 write.csv(gcomp_sl_sie_estimates,
-  paste(results_path, sim_folder, "gcomp_sie_", n_sim, ".csv", sep = ""),
+  paste(results_path, sim_folder, "gcomp_sie_rud_", n_sim, ".csv", sep = ""),
   row.names = FALSE
 )
 
@@ -607,11 +605,11 @@ for (i in seq_len(length(libs))) {
   )
 
   gcomp_sl_sde_estimates <- read.csv(paste(
-    results_path, sim_folder, "gcomp_sde_", n_sim, ".csv",
+    results_path, sim_folder, "gcomp_sde_rud_", n_sim, ".csv",
     sep = ""
   ))
   gcomp_sl_sie_estimates <- read.csv(paste(
-    results_path, sim_folder, "gcomp_sie_", n_sim, ".csv",
+    results_path, sim_folder, "gcomp_sie_rud_", n_sim, ".csv",
     sep = ""
   ))
 
@@ -625,12 +623,12 @@ for (i in seq_len(length(libs))) {
 
   write.csv(
     gcomp_sl_sde_estimates,
-    paste(results_path, sim_folder, "gcomp_sde_", n_sim, ".csv", sep = ""),
+    paste(results_path, sim_folder, "gcomp_sde_rud_", n_sim, ".csv", sep = ""),
     row.names = FALSE
   )
   write.csv(
     gcomp_sl_sie_estimates,
-    paste(results_path, sim_folder, "gcomp_sie_", n_sim, ".csv", sep = ""),
+    paste(results_path, sim_folder, "gcomp_sie_rud_", n_sim, ".csv", sep = ""),
     row.names = FALSE
   )
 }

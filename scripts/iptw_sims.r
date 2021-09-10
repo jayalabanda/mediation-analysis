@@ -85,7 +85,7 @@ ests_path <- "estimates/"
 true_sde <- 0.064
 true_sie <- 0.0112
 
-n_sim <- 250
+n_sim <- 750
 n_boot <- 200
 
 
@@ -251,7 +251,7 @@ results_sde <- data.frame(
 )
 
 results_sde
-write.csv(results_sde, paste(results_path, "results/", "results_sde_iptw.csv", sep = ""))
+# write.csv(results_sde, paste(results_path, "results/", "results_sde_iptw.csv", sep = ""))
 
 results_sie <- data.frame(
   bias = bias_sie,
@@ -264,7 +264,7 @@ results_sie <- data.frame(
 )
 
 results_sie
-write.csv(results_sie, paste(results_path, "results/", "results_sie_iptw.csv", sep = ""))
+# write.csv(results_sie, paste(results_path, "results/", "results_sie_iptw.csv", sep = ""))
 
 # n_sim = 100
 # sde
@@ -279,7 +279,8 @@ write.csv(results_sie, paste(results_path, "results/", "results_sie_iptw.csv", s
 #   coverage
 # 1     0.91
 
-# n_sim <- 250
+
+# n_sim = 250
 # sde
 #           bias     variance        STD     std_bias          MSE av_est_std
 # 1 -3.99406e-05 0.0002605039 0.01614013 -0.002474614 0.0002605054 0.01539173
@@ -291,3 +292,45 @@ write.csv(results_sie, paste(results_path, "results/", "results_sie_iptw.csv", s
 # 1 -0.0001880437 3.573513e-06 0.001890374 -0.09947432 3.608874e-06 0.001814843
 #   coverage
 # 1    0.908
+
+
+# n_sim = 500
+# sde
+#           bias     variance        STD    std_bias          MSE av_est_std
+# 1 -0.000475612 0.0002500413 0.01581269 -0.03007786 0.0002502675 0.01535048
+#   coverage
+# 1    0.936
+
+# sie
+#            bias     variance         STD    std_bias          MSE  av_est_std
+# 1 -0.0001618821 3.322718e-06 0.001822832 -0.08880802 3.348923e-06 0.001822781
+#   coverage
+# 1     0.92
+
+
+# n_sim = 750
+# sde
+#            bias     variance        STD    std_bias          MSE av_est_std
+# 1 -0.0003881096 0.0002465893 0.01570316 -0.02471538 0.0002467399 0.01536024
+#    coverage
+# 1 0.9426667
+
+# sie
+#            bias     variance         STD    std_bias          MSE  av_est_std
+# 1 -0.0001004024 3.310287e-06 0.001819419 -0.05518375 3.320368e-06 0.001829653
+#    coverage
+# 1 0.9293333
+
+
+# n_sim = 1000
+# sde
+#           bias     variance        STD    std_bias          MSE av_est_std
+# 1 0.0001060799 0.0002424025 0.01556928 0.006813412 0.0002424137 0.01536758
+#   coverage
+# 1    0.949
+
+# sie
+#            bias    variance         STD   std_bias         MSE  av_est_std
+# 1 -0.0001302327 3.25807e-06 0.001805012 -0.0721506 3.27503e-06 0.001828228
+#   coverage
+# 1    0.936
