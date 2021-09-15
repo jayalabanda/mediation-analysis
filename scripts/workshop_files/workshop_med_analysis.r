@@ -102,7 +102,7 @@ workshop_estimates <- function(data) {
   y <- data$y
 
   # (a, a') = (1, 0)
-  lm_y <- lm(y ~ m + a + z + w)
+  lm_y <- lm(y ~ m + a + z + w) # a:m
   pred_a1z0 <- predict(lm_y,
     newdata = data.frame(m = m, a = 1, z = 0, w = w)
   )
@@ -123,7 +123,7 @@ workshop_estimates <- function(data) {
   res_1_0 <- mean(pred_pseudo_1_0)
 
   # (a, a') = (1, 1)
-  lm_y <- lm(y ~ m + a + z + w)
+  lm_y <- lm(y ~ m + a + z + w) # a:m
   pred_a1z0 <- predict(lm_y,
     newdata = data.frame(m = m, a = 1, z = 0, w = w)
   )
