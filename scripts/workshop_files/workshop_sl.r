@@ -1,7 +1,7 @@
-workshop_estimates_sl <- function(data, sl_library) {
-  require(stringr)
-  require(SuperLearner)
+library(stringr)
+library(SuperLearner)
 
+workshop_estimates_sl <- function(data, sl_library) {
   w_names <- str_subset(colnames(data), "w")
   w <- as.matrix(data[, w_names])
   a <- data$a
@@ -10,7 +10,6 @@ workshop_estimates_sl <- function(data, sl_library) {
   y <- data$y
 
   # (a, a') = (1, 0)
-  # lm_y <- lm(y ~ z + w + a * m)
   x <- data.frame(a = a, z = z, w = w, m = m)
   lm_y <- SuperLearner(y, x,
     family = "binomial",
@@ -31,7 +30,6 @@ workshop_estimates_sl <- function(data, sl_library) {
 
   y <- z
   x <- as.data.frame(a)
-  # prob_z <- lm(z ~ a)
   prob_z <- SuperLearner(y, x,
     family = "binomial",
     SL.library = sl_library
@@ -45,7 +43,6 @@ workshop_estimates_sl <- function(data, sl_library) {
 
   y <- pseudo_out_1_0
   x <- data.frame(a = a, w = w)
-  # fit_pseudo <- lm(pseudo_out_1_0 ~ a + w)
   fit_pseudo <- SuperLearner(y, x,
     family = "binomial",
     SL.library = sl_library
@@ -60,7 +57,6 @@ workshop_estimates_sl <- function(data, sl_library) {
   res_1_0 <- mean(pred_pseudo_1_0)
 
   # (a, a') = (1, 1)
-  # lm_y <- lm(y ~ z + w + a * m)
   y <- data$y
   x <- data.frame(a = a, z = z, w = w, m = m)
   lm_y <- SuperLearner(y, x,
@@ -82,7 +78,6 @@ workshop_estimates_sl <- function(data, sl_library) {
 
   y <- z
   x <- as.data.frame(a)
-  # prob_z <- lm(z ~ a)
   prob_z <- SuperLearner(y, x,
     family = "binomial",
     SL.library = sl_library
@@ -96,7 +91,6 @@ workshop_estimates_sl <- function(data, sl_library) {
 
   y <- pseudo_out_1_1
   x <- data.frame(a = a, w = w)
-  # fit_pseudo <- lm(pseudo_out_1_1 ~ a + w)
   fit_pseudo <- SuperLearner(y, x,
     family = "binomial",
     SL.library = sl_library
@@ -111,7 +105,6 @@ workshop_estimates_sl <- function(data, sl_library) {
   res_1_1 <- mean(pred_pseudo_1_1)
 
   # (a, a') = (0, 0)
-  # lm_y <- lm(y ~ z + w + a * m)
   y <- data$y
   x <- data.frame(a = a, z = z, w = w, m = m)
   lm_y <- SuperLearner(y, x,
@@ -133,7 +126,6 @@ workshop_estimates_sl <- function(data, sl_library) {
 
   y <- z
   x <- as.data.frame(a)
-  # prob_z <- lm(z ~ a)
   prob_z <- SuperLearner(y, x,
     family = "binomial",
     SL.library = sl_library
@@ -147,7 +139,6 @@ workshop_estimates_sl <- function(data, sl_library) {
 
   y <- pseudo_out_0_0
   x <- data.frame(a = a, w = w)
-  # fit_pseudo <- lm(pseudo_out_0_0 ~ a + w)
   fit_pseudo <- SuperLearner(y, x,
     family = "binomial",
     SL.library = sl_library

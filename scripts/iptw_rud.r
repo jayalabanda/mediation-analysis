@@ -84,10 +84,6 @@ res
 # $iptw_ein
 # [1] 0.02732996
 
-# TODO
-# plusieurs simulations
-# changer avec SuperLearner
-
 iptw_direct_indirect_bis <- function(data) {
   g_a <- glm(a ~ 1, family = "binomial", data = data)
   g_a_l0 <- glm(a ~ w_1 + w_2, family = "binomial", data = data)
@@ -184,18 +180,6 @@ for (i in 1:n_sim) {
 end_time <- Sys.time()
 diff <- end_time - start_time
 diff
-
-# avec n_sim = 100
-# 13.81 s
-
-# avec n_sim = 200
-# 26.91 s
-
-# avec n_sim = 500
-# 68.42 s
-
-# avec n_sim = 1000
-# 140.54 s
 
 write.csv(results_iptw,
   file = paste("../Data/", "results_iptw.csv", sep = ""),
@@ -338,36 +322,3 @@ for (i in 1:1000) {
 end_time <- Sys.time()
 diff <- end_time - start_time
 diff
-
-# 100 samples, direct effect
-# one-step: 6.01 mins
-# tmle: 6.78 mins
-
-# 200 samples, direct effect
-# one-step: 16.83 mins
-# tmle: 15.05 mins
-
-# 500 samples, direct effect
-# one-step: 53.67 mins
-# tmle: 62.46 mins
-
-# 1000 samples, direct effect
-# one-step: 167.16 mins
-# tmle: 105.70 mins
-
-
-# 100 samples, indirect effect
-# one-step: 8.63 mins
-# tmle: 8.70 mins
-
-# 200 samples, indirect effect
-# one-step: 16.40 mins
-# tmle: 15.73 mins
-
-# 500 samples, indirect effect
-# one-step: 49.75 mins
-# tmle: 49.16 mins
-
-# 1000 samples, indirect effect
-# one-step: 100.31 mins
-# tmle: 107.15 mins

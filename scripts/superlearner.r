@@ -1,32 +1,9 @@
-library(SuperLearner)
-library(ranger)
-library(arm)
-library(speedglm)
-library(medoutcon)
-library(tidyverse)
-
-libs <- c(
-  "SL.glm", "SL.glm.interaction", "SL.ranger",
-  "SL.bayesglm", "SL.lm", "SL.speedlm"
-)
-learners <- c(sl3::Lrnr_bayesglm$new(), sl3::Lrnr_glm_fast$new(), sl3::Lrnr_ranger$new())
-
-set.seed(42)
-n_sim <- 50
-idx <- sample(1:1000, n_sim)
-
-file_path <- "../Data/"
-data <- data.frame(read.csv(paste(file_path, "data_sim.csv", sep = "")))
-data <- subset(data, select = -c(Y_qol))
-head(data)
-
-
 ## Estimation manuelle (g-comp)
-estimate_manual <- function(data, sl_library) {
+estimate_manual <- function(data, inter, sl_library) {
   tempdat <- data
 
   y <- tempdat$m
-  x <- subset(tempdat, select = c("w1", "w2", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
   g_m_model <- SuperLearner(y, x,
     family = binomial(),
     SL.library = sl_library
@@ -44,6 +21,9 @@ estimate_manual <- function(data, sl_library) {
 
   # Q function
   y <- tempdat$y
+  if (inter) {
+    tempdat$am <- tempdat$a * tempdat$m
+  }
   x <- subset(tempdat, select = -c(y))
   q_model <- SuperLearner(y, x,
     family = binomial(),
@@ -65,16 +45,18 @@ estimate_manual <- function(data, sl_library) {
   tempdat$q_gamma_a0 <- q_preds_m1 * g_m_0$pred + q_preds_m0 * (1 - g_m_0$pred)
 
   y <- tempdat$q_gamma_a1
-  x <- subset(tempdat, select = c("w1", "w2", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
   q_model_a1 <- SuperLearner(y, x,
-    family = "quasibinomial",
+    # family = "quasibinomial"
+    family = binomial(),
     SL.library = sl_library
   )
 
   y <- tempdat$q_gamma_a0
-  x <- subset(tempdat, select = c("w1", "w2", "a"))
+  x <- subset(tempdat, select = c("w1", "w2", "w3", "a"))
   q_model_a0 <- SuperLearner(y, x,
-    family = "quasibinomial",
+    # family = "quasibinomial",
+    family = binomial(),
     SL.library = sl_library
   )
 
@@ -85,56 +67,11 @@ estimate_manual <- function(data, sl_library) {
   psi_m_rnde <- mean(q_pred_a1_gamma_a0$pred) - mean(q_pred_a0_gamma_a0$pred)
   psi_m_rnie <- mean(q_pred_a1_gamma_a1$pred) - mean(q_pred_a1_gamma_a0$pred)
 
-  results <- list(
-    psi_m_rnde = psi_m_rnde,
-    psi_m_rnie = psi_m_rnie
-  )
-  return(results)
+  return(c(
+    psi_m_rnde,
+    psi_m_rnie
+  ))
 }
-
-results <- estimate_manual(data, "SL.speedlm")
-results
-
-### SL.glm.interaction
-# $psi_m_rnde
-# [1] 0.06221807
-
-# $psi_m_rnie
-# [1] 0.009689907
-
-### SL.ranger
-# [1] 0.03603389
-
-# $psi_m_rnie
-# [1] 0.005867094
-
-### SL.bayesglm
-# $psi_m_rnde
-# [1] 0.062521
-
-# $psi_m_rnie
-# [1] 0.009826797
-
-### SL.glm
-# $psi_m_rnde
-# [1] 0.0625841
-
-# $psi_m_rnie
-# [1] 0.009845864
-
-### SL.lm
-# $psi_m_rnde
-# [1] 0.06600732
-
-# $psi_m_rnie
-# [1] 0.008698918
-
-### SL.speedlm
-# $psi_m_rnde
-# [1] 0.06600732
-
-# $psi_m_rnie
-# [1] 0.008698918
 
 
 ## Article Kara E. Rudolph (TMLE)
@@ -147,7 +84,7 @@ estimate_rudolph <- function(data, sl_library) {
   dfa0$a <- dfm0$m <- 0
 
   y <- obsdat$z
-  x <- obsdat[, c("w1", "w2", "a")]
+  x <- subset(obsdat, select = c("w1", "w2", "a"))
   sl_glm_zfit <- SuperLearner(y, x,
     family = binomial(),
     SL.library = sl_library
@@ -174,7 +111,7 @@ estimate_rudolph <- function(data, sl_library) {
   gm_a1 <- preds_m_a1 * preds_z_a1 + preds_m_a1 * (1 - preds_z_a1)
 
   y <- obsdat$a
-  x <- obsdat[, c("w1", "w2")]
+  x <- subset(obsdat, select = c("w1", "w2"))
   sl_glm_afit <- SuperLearner(y, x,
     family = binomial(),
     SL.library = sl_library
@@ -355,113 +292,108 @@ estimate_rudolph <- function(data, sl_library) {
   sie_eic <- eic_a1_g1 - eic_a1_g0
   var_sie_eic <- var(sie_eic) / nrow(tmpdat)
 
-  results <- data.frame(
-    sde = sde_tmle,
-    sde_var = var_sde_eic,
-    sie = sie_tmle,
-    sie_var = var_sie_eic,
-    sde_lb = sde_tmle - 1.96 * sqrt(var_sde_eic), # sde lower bound
-    sde_ub = sde_tmle + 1.96 * sqrt(var_sde_eic), # sde upper bound
-    sie_lb = sie_tmle - 1.96 * sqrt(var_sie_eic), # sie lower bound
-    sie_ub = sie_tmle + 1.96 * sqrt(var_sie_eic) # sie upper bound
-  )
-  return(results)
+  return(c(
+    sde_tmle,
+    sie_tmle
+  ))
 }
 
-results <- estimate_rudolph(data, "SL.speedglm")
-results$sde
-results$sie
 
-### SL.glm
-# > results$sde
-# [1] 0.08026604
+### Medoutcon (TMLE)
+tmle_direct_indirect <- function(data, learner) {
+  w_names <- str_subset(colnames(data), "w")
+  m_names <- str_subset(colnames(data), "m")
 
-# > results$sie
-# [1] 0.008459422
+  dir_tmle <- medoutcon(
+    W = data[, w_names],
+    A = data$a,
+    Z = data$z,
+    M = data[, m_names],
+    Y = data$y,
+    effect = "direct",
+    u_learners = learner,
+    v_learners = learner,
+    estimator = "tmle"
+  )
 
-### SL.glm.interaction
-# > results$sde
-# [1] 0.07943351
+  ind_tmle <- medoutcon(
+    W = data[, w_names],
+    A = data$a,
+    Z = data$z,
+    M = data[, m_names],
+    Y = data$y,
+    effect = "indirect",
+    u_learners = learner,
+    v_learners = learner,
+    estimator = "tmle"
+  )
 
-# > results$sie
-# [1] 0.008547797
-
-### SL.ranger
-# > results$sde
-# [1] 0.07039337
-
-# > results$sie
-# [1] 0.006884582
-
-### SL.bayesglm
-# > results$sde
-# [1] 0.08018934
-
-# > results$sie
-# [1] 0.008446274
-
-### SL.lm
-# > results$sde
-# [1] 0.08432383
-
-# > results$sie
-# [1] 0.007735236
-
-### SL.speedlm
-# > results$sde
-# [1] 0.08432383
-
-# > results$sie
-# [1] 0.007735236
+  return(c(
+    dir_tmle$theta,
+    ind_tmle$theta
+  ))
+}
 
 
 ### Medoutcon (one-step)
-ind_dir_effects_medoutcon <- function(data, w_names, m_names, learner) {
+onestep_direct_indirect <- function(data, learner) {
+  w_names <- str_subset(colnames(data), "w")
+  m_names <- str_subset(colnames(data), "m")
+
   dir_os <- medoutcon(
     W = data[, w_names],
-    A = data$A,
-    Z = data$Z,
+    A = data$a,
+    Z = data$z,
     M = data[, m_names],
-    Y = data$Y,
+    Y = data$y,
     effect = "direct",
-    estimator = "onestep",
     u_learners = learner,
-    v_learners = learner
+    v_learners = learner,
+    estimator = "onestep"
   )
 
   ind_os <- medoutcon(
     W = data[, w_names],
-    A = data$A,
-    Z = data$Z,
+    A = data$a,
+    Z = data$z,
     M = data[, m_names],
-    Y = data$Y,
+    Y = data$y,
     effect = "indirect",
-    estimator = "onestep",
     u_learners = learner,
-    v_learners = learner
+    v_learners = learner,
+    estimator = "onestep"
   )
 
-  return(list(
-    dir_result_os = dir_os,
-    ind_result_os = ind_os
+  return(c(
+    dir_os$theta,
+    ind_os$theta
   ))
 }
 
 
 ### IPTW
-iptw_direct_indirect <- function(data, sl_library) {
+iptw_direct_indirect <- function(data, inter, sl_library) {
   g_a <- glm(a ~ 1, family = "binomial", data = data)
 
   y <- data$a
-  x <- subset(data, select = c("w1", "w2"))
-  g_a_l0 <- SuperLearner(y, x, family = binomial(), SL.library = sl_library)
+  x <- subset(data, select = c("w1", "w2", "w3"))
+  g_a_l0 <- SuperLearner(y, x,
+    family = binomial(),
+    SL.library = sl_library
+  )
 
   y <- data$m
-  x <- subset(data, select = c(a))
-  g_m_a <- SuperLearner(y, x, family = binomial(), SL.library = sl_library)
+  x <- subset(data, select = a)
+  g_m_a <- SuperLearner(y, x,
+    family = binomial(),
+    SL.library = sl_library
+  )
 
-  x <- subset(data, select = c("w1", "w2", "a", "z"))
-  g_m_l <- SuperLearner(y, x, family = binomial(), SL.library = sl_library)
+  x <- subset(data, select = c("w1", "w2", "w3", "a", "z"))
+  g_m_l <- SuperLearner(y, x,
+    family = binomial(),
+    SL.library = sl_library
+  )
 
   pred_g1_a <- predict(g_a, type = "response")
   pred_g0_a <- 1 - pred_g1_a
@@ -487,217 +419,429 @@ iptw_direct_indirect <- function(data, sl_library) {
   gm_al[data$m == 0] <- pred_g0_m_l[data$m == 0]
 
   sw <- (ga * gm_a) / (ga_l * gm_al)
+  msm_m <- glm(m ~ a + w1 + w2 + w3, family = "binomial", data = data)
 
-  msm_y <- glm(y ~ a + m + a:m, family = "gaussian", data = data, weights = sw)
-  msm_m <- glm(m ~ a + w1 + w2, family = "binomial", data = data, weights = (ga / ga_l))
+  if (inter) {
+    msm_y <- glm(y ~ a + m + a:m,
+      family = "gaussian",
+      data = data, weights = sw
+    )
 
-  iptw_edn_l0 <- msm_y$coefficients["a"] +
-    (msm_y$coefficients["a:m"] *
-      plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+    iptw_edn_l0 <- msm_y$coefficients["a"] +
+      (msm_y$coefficients["a:m"] *
+        plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+          msm_m$coefficients["w1"] * data$w1 +
+          msm_m$coefficients["w2"] * data$w2 +
+          msm_m$coefficients["w3"] * data$w3))
+
+    iptw_ein_l0 <- (msm_y$coefficients["m"] + msm_y$coefficients["a:m"]) *
+      (plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+        msm_m$coefficients["a"] +
         msm_m$coefficients["w1"] * data$w1 +
-        msm_m$coefficients["w2"] * data$w2))
+        msm_m$coefficients["w2"] * data$w2 +
+        msm_m$coefficients["w3"] * data$w3) -
+        plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+          msm_m$coefficients["w1"] * data$w1 +
+          msm_m$coefficients["w2"] * data$w2 +
+          msm_m$coefficients["w3"] * data$w3))
+  } else {
+    msm_y <- glm(y ~ a + m,
+      family = "gaussian",
+      data = data, weights = sw
+    )
 
-  iptw_ein_l0 <- (msm_y$coefficients["m"] + msm_y$coefficients["a:m"]) *
-    (plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
-      msm_m$coefficients["a"] +
-      msm_m$coefficients["w1"] * data$w1 +
-      msm_m$coefficients["w2"] * data$w2) -
-      plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+    iptw_edn_l0 <- msm_y$coefficients["a"]
+
+    iptw_ein_l0 <- (msm_y$coefficients["m"]) *
+      (plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+        msm_m$coefficients["a"] +
         msm_m$coefficients["w1"] * data$w1 +
-        msm_m$coefficients["w2"] * data$w2))
+        msm_m$coefficients["w2"] * data$w2 +
+        msm_m$coefficients["w3"] * data$w3) -
+        plogis(rep(msm_m$coefficients["(Intercept)"], nrow(data)) +
+          msm_m$coefficients["w1"] * data$w1 +
+          msm_m$coefficients["w2"] * data$w2 +
+          msm_m$coefficients["w3"] * data$w3))
+  }
 
   iptw_edn <- mean(iptw_edn_l0)
   iptw_ein <- mean(iptw_ein_l0)
 
-  return(list(iptw_edn = iptw_edn, iptw_ein = iptw_ein))
+  return(c(
+    iptw_edn,
+    iptw_ein
+  ))
 }
 
-## Save results
-save_path <- "./Results/estimates/"
 
-#### Rudolph article: TMLE
-file_path <- "../Data/simulations_rudolph/"
+libs <- c(
+  "SL.glm", "SL.glm.interaction", "SL.ranger", "SL.bayesglm",
+  "SL.speedlm", "SL.mean", "SL.earth", "SL.step.interaction"
+)
 
-results_sde <- matrix(nrow = n_sim, ncol = length(libs))
-results_sie <- matrix(nrow = n_sim, ncol = length(libs))
-colnames(results_sde) <- libs
-colnames(results_sie) <- libs
+learners <- c(
+  sl3::Lrnr_bayesglm$new(), sl3::Lrnr_glm_fast$new(),
+  sl3::Lrnr_ranger$new(), sl3::Lrnr_nnet$new(),
+  sl3::Lrnr_earth$new(), sl3::Lrnr_mean$new(),
+  sl3::Lrnr_polspline$new()
+)
+learner_names <- c("bayes_glm", "glm_fast", "ranger", "nnet", "earth", "mean", "polspline")
 
-for (i in 1:n_sim) {
-  print(paste0("Simulation ", i))
+# Constants
+true_sde <- 0.064
+true_sie <- 0.0112
+# Rudolph effects
+true_sde_rud <- 0.124793
+true_sie_rud <- 0.03026875
+# Interaction effects
+true_sde_inter <- 0.073882
+true_sie_inter <- 0.0154
 
-  data <- read.csv(paste0(file_path, "data_", idx[i], ".csv"))
-  for (j in seq_len(length(libs))) {
-    results <- estimate_rudolph(data, libs[j])
-    results_sde[i, j] <- results$sde
-    results_sie[i, j] <- results$sie
+file_path <- "../Data/"
+results_path <- "./Results/"
+sim_path <- "simulations_rudolph/"
+sim_folder <- "sl_comparisons_new/"
+n_sim <- 500
+
+
+# Get bias estimates from files
+get_bias_estimates <- function(n_sim, path, FUN, ...) { # nolint
+  suppressPackageStartupMessages({
+    library(medoutcon)
+    library(SuperLearner)
+    library(ranger)
+    library(arm)
+    library(speedglm)
+    library(stringr)
+    library(sl3)
+  })
+
+  set.seed(42)
+  idx <- sample(1:1000, n_sim)
+
+  bias_estimates <- matrix(nrow = n_sim, ncol = 2)
+  colnames(bias_estimates) <- c("SDE", "SIE")
+
+  for (i in 1:n_sim) {
+    if (i %% 10 == 0 | i == 1) {
+      print(paste("Simulation ", i, " of ", n_sim))
+    }
+
+    data <- read.csv(paste0(path, "data_", idx[i], ".csv"))
+
+    if (str_detect(path, "rudolph")) {
+      results <- FUN(data, ...)
+      bias_estimates[i, "SDE"] <- results[1] - true_sde_rud
+      bias_estimates[i, "SIE"] <- results[2] - true_sie_rud
+    } else if (str_detect(path, "inter")) {
+      data <- subset(data, select = -y_qol)
+      colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
+      results <- FUN(data, ...)
+      bias_estimates[i, "SDE"] <- results[1] - true_sde_inter
+      bias_estimates[i, "SIE"] <- results[2] - true_sie_inter
+    } else {
+      data <- subset(data, select = -y_qol)
+      colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
+      results <- FUN(data, ...)
+      bias_estimates[i, "SDE"] <- results[1] - true_sde
+      bias_estimates[i, "SIE"] <- results[2] - true_sie
+    }
+  }
+
+  return(as.data.frame(bias_estimates))
+}
+
+# Plot bias estimates as boxplot
+plot_bias_estimates <- function(sde_bias, sie_bias, n_sim, title, sub) {
+  par(mfrow = c(1, 2))
+  # SDE
+  boxplot(sde_bias,
+    main = paste("Bias estimates of SDE with", title, "\nand n_sim = ", n_sim),
+    ylab = "Bias",
+    col = "steelblue2",
+    border = "black",
+    sub = sub
+  )
+  abline(h = 0, col = "black", lty = "dashed")
+
+  # SIE
+  boxplot(sie_bias,
+    main = paste("Bias estimates of SIE with", title, "\nand n_sim = ", n_sim),
+    ylab = "Bias",
+    col = "steelblue2",
+    border = "black",
+    sub = sub
+  )
+  abline(h = 0, col = "black", lty = "dashed")
+}
+
+
+## g-comp
+gcomp_sl_sde_estimates <- matrix(nrow = n_sim, ncol = length(libs))
+gcomp_sl_sie_estimates <- matrix(nrow = n_sim, ncol = length(libs))
+colnames(gcomp_sl_sde_estimates) <- libs
+colnames(gcomp_sl_sie_estimates) <- libs
+
+write.csv(gcomp_sl_sde_estimates,
+  paste0(results_path, sim_folder, "gcomp_sde_rud_", n_sim, ".csv"),
+  row.names = FALSE
+)
+write.csv(gcomp_sl_sie_estimates,
+  paste0(results_path, sim_folder, "gcomp_sie_rud_", n_sim, ".csv"),
+  row.names = FALSE
+)
+
+for (i in seq_len(length(libs))) {
+  cat(paste("\n######## Library ", i, " of ", length(libs), " ########\n"))
+
+  bias_estimates_gcomp <- get_bias_estimates(
+    n_sim, paste0(file_path, sim_path),
+    FUN = estimate_manual,
+    0, libs[i]
+  )
+
+  gcomp_sl_sde_estimates <- read.csv(paste0(
+    results_path, sim_folder, "gcomp_sde_rud_", n_sim, ".csv"
+  ))
+  gcomp_sl_sie_estimates <- read.csv(paste0(
+    results_path, sim_folder, "gcomp_sie_rud_", n_sim, ".csv"
+  ))
+
+  gcomp_sl_sde_estimates[, i] <- bias_estimates_gcomp[, 1]
+  gcomp_sl_sie_estimates[, i] <- bias_estimates_gcomp[, 2]
+
+  plot_bias_estimates(
+    gcomp_sl_sde_estimates, gcomp_sl_sie_estimates,
+    n_sim, "g-computation", "base simulations"
+  )
+
+  write.csv(
+    gcomp_sl_sde_estimates,
+    paste0(results_path, sim_folder, "gcomp_sde_rud_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+  write.csv(
+    gcomp_sl_sie_estimates,
+    paste0(results_path, sim_folder, "gcomp_sie_rud_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+}
+
+
+## IPTW
+n_sims <- c(100, 200, 300, 400, 500)
+for (n_sim in n_sims) {
+  iptw_sl_sde_estimates <- matrix(nrow = n_sim, ncol = length(libs))
+  iptw_sl_sie_estimates <- matrix(nrow = n_sim, ncol = length(libs))
+  colnames(iptw_sl_sde_estimates) <- libs
+  colnames(iptw_sl_sie_estimates) <- libs
+
+  write.csv(iptw_sl_sde_estimates,
+    paste0(results_path, sim_folder, "iptw_sde_rud_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+  write.csv(iptw_sl_sie_estimates,
+    paste0(results_path, sim_folder, "iptw_sie_rud_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+
+  for (i in seq_len(length(libs))) {
+    cat(paste("\n######## Library ", i, " of ", length(libs), " ########\n"))
+
+    bias_estimates_iptw <- get_bias_estimates(
+      n_sim, paste0(file_path, sim_path),
+      FUN = iptw_direct_indirect,
+      1, libs[i]
+    )
+
+    iptw_sl_sde_estimates <- read.csv(paste0(
+      results_path, sim_folder, "iptw_sde_rud_", n_sim, ".csv"
+    ))
+    iptw_sl_sie_estimates <- read.csv(paste0(
+      results_path, sim_folder, "iptw_sie_rud_", n_sim, ".csv"
+    ))
+
+    iptw_sl_sde_estimates[, i] <- bias_estimates_iptw[, 1]
+    iptw_sl_sie_estimates[, i] <- bias_estimates_iptw[, 2]
+
+    plot_bias_estimates(
+      iptw_sl_sde_estimates, iptw_sl_sie_estimates,
+      n_sim, "IPTW", "base simulations"
+    )
+
+    write.csv(
+      iptw_sl_sde_estimates,
+      paste0(results_path, sim_folder, "iptw_sde_rud_", n_sim, ".csv"),
+      row.names = FALSE
+    )
+    write.csv(
+      iptw_sl_sie_estimates,
+      paste0(results_path, sim_folder, "iptw_sie_rud_", n_sim, ".csv"),
+      row.names = FALSE
+    )
   }
 }
 
-results_sde
-results_sie
 
-write.csv(results_sde, paste(save_path, "estimates_sde_SL_rud.csv"), row.names = FALSE)
-write.csv(results_sie, paste(save_path, "estimates_sie_SL_rud.csv"), row.names = FALSE)
+## TMLE
+tmle_sl_sde_estimates <- matrix(nrow = n_sim, ncol = length(libs))
+tmle_sl_sie_estimates <- matrix(nrow = n_sim, ncol = length(learners))
+colnames(tmle_sl_sde_estimates) <- libs
+colnames(tmle_sl_sie_estimates) <- learner_names
 
-boxplot(results_sde)
-boxplot(results_sie)
+write.csv(tmle_sl_sde_estimates,
+  paste0(results_path, sim_folder, "tmle_sde_quant_", n_sim, ".csv"),
+  row.names = FALSE
+)
+write.csv(tmle_sl_sie_estimates,
+  paste0(results_path, sim_folder, "tmle_sie_quant_", n_sim, ".csv"),
+  row.names = FALSE
+)
 
+ind <- 1
+for (learner in learners) {
+  # for (i in seq_len(length(libs))) {
+  cat(paste("\n######## Library ", ind, " of ", length(learners), " ########\n"))
 
-##### G-comp
-file_path <- "../Data/simulations_rudolph/"
+  bias_estimates_tmle <- try(get_bias_estimates(
+    n_sim, paste0(file_path, sim_path),
+    FUN = tmle_direct_indirect,
+    # FUN = estimate_rudolph,
+    learner
+    # libs[i]
+  ))
 
-results_sde <- matrix(nrow = n_sim, ncol = length(libs))
-results_sie <- matrix(nrow = n_sim, ncol = length(libs))
-colnames(results_sde) <- libs
-colnames(results_sie) <- libs
+  tmle_sl_sde_estimates <- read.csv(paste0(
+    results_path, sim_folder, "tmle_sde_quant_", n_sim, ".csv"
+  ))
+  tmle_sl_sie_estimates <- read.csv(paste0(
+    results_path, sim_folder, "tmle_sie_quant_", n_sim, ".csv"
+  ))
 
-for (i in 1:n_sim) {
-  print(paste0("Simulation ", i))
+  tmle_sl_sde_estimates[, ind] <- bias_estimates_tmle[, 1]
+  tmle_sl_sie_estimates[, ind] <- bias_estimates_tmle[, 2]
 
-  data <- read.csv(paste0(file_path, "data_", idx[i], ".csv"))
-  for (j in seq_len(length(libs))) {
-    results <- estimate_manual(data, libs[j])
-    results_sde[i, j] <- results$psi_m_rnde
-    results_sie[i, j] <- results$psi_m_rnie
-  }
+  plot_bias_estimates(
+    tmle_sl_sde_estimates, tmle_sl_sie_estimates,
+    n_sim, "TMLE", "variable de confusion continue"
+  )
+
+  write.csv(
+    tmle_sl_sde_estimates,
+    paste0(results_path, sim_folder, "tmle_sde_quant_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+  write.csv(
+    tmle_sl_sie_estimates,
+    paste0(results_path, sim_folder, "tmle_sie_quant_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+  ind <- ind + 1
 }
 
-results_sde
-results_sie
 
-write.csv(results_sde, paste(save_path, "estimates_sde_SL.csv"), row.names = FALSE)
-write.csv(results_sie, paste(save_path, "estimates_sie_SL.csv"), row.names = FALSE)
+## one-step
+onestep_sl_sde_estimates <- matrix(nrow = n_sim, ncol = length(learners))
+onestep_sl_sie_estimates <- matrix(nrow = n_sim, ncol = length(learners))
+colnames(onestep_sl_sde_estimates) <- learner_names
+colnames(onestep_sl_sie_estimates) <- learner_names
 
-boxplot(results_sde)
-boxplot(results_sie)
+write.csv(onestep_sl_sde_estimates,
+  paste0(results_path, sim_folder, "onestep_sde_", n_sim, ".csv"),
+  row.names = FALSE
+)
+write.csv(onestep_sl_sie_estimates,
+  paste0(results_path, sim_folder, "onestep_sie_", n_sim, ".csv"),
+  row.names = FALSE
+)
 
+ind <- 1
+for (learner in learners) {
+  cat(paste("\n######## Library ", ind, " of ", length(learners), " ########\n"))
 
-#### Positivity
-file_path <- "../Data/new_simulations/"
+  bias_estimates_onestep <- get_bias_estimates(
+    n_sim, paste0(file_path, sim_path),
+    FUN = onestep_direct_indirect,
+    learner
+  )
 
-results_sde <- matrix(nrow = n_sim, ncol = length(libs))
-results_sie <- matrix(nrow = n_sim, ncol = length(libs))
-colnames(results_sde) <- libs
-colnames(results_sie) <- libs
+  onestep_sl_sde_estimates <- read.csv(paste0(
+    results_path, sim_folder, "onestep_sde_", n_sim, ".csv"
+  ))
+  onestep_sl_sie_estimates <- read.csv(paste0(
+    results_path, sim_folder, "onestep_sie_", n_sim, ".csv"
+  ))
 
-for (i in 1:n_sim) {
-  print(paste0("Simulation ", i))
+  onestep_sl_sde_estimates[, ind] <- bias_estimates_onestep[, 1]
+  onestep_sl_sie_estimates[, ind] <- bias_estimates_onestep[, 2]
 
-  data <- read.csv(paste0(file_path, "data_", idx[i], ".csv"))
-  data <- subset(data, select = -c(y_qol))
+  plot_bias_estimates(
+    onestep_sl_sde_estimates, onestep_sl_sie_estimates,
+    n_sim, "one-step", "modèle Rudolph"
+  )
 
-  for (j in seq_len(length(libs))) {
-    results <- estimate_rudolph(data, libs[j])
-    results_sde[i, j] <- results$sde
-    results_sie[i, j] <- results$sie
-  }
+  write.csv(
+    onestep_sl_sde_estimates,
+    paste0(results_path, sim_folder, "onestep_sde_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+  write.csv(
+    onestep_sl_sie_estimates,
+    paste0(results_path, sim_folder, "onestep_sie_", n_sim, ".csv"),
+    row.names = FALSE
+  )
+  ind <- ind + 1
 }
 
-results_sde
-results_sie
 
-write.csv(results_sde, paste(save_path, "estimates_sde_posit.csv"), row.names = FALSE)
-write.csv(results_sie, paste(save_path, "estimates_sie_posit.csv"), row.names = FALSE)
-
-boxplot(results_sde)
-boxplot(results_sie)
-
-
-#### Medoutcon (One-step)
-file_path <- "../Data/new_simulations/"
-
-results_sde <- matrix(nrow = n_sim, ncol = length(learners))
-results_sie <- matrix(nrow = n_sim, ncol = length(learners))
-colnames(results_sde) <- c("Bayesglm", "Glm_fast", "Ranger")
-colnames(results_sie) <- c("Bayesglm", "Glm_fast", "Ranger")
-
-for (i in 1:n_sim) {
-  print(paste0("Simulation ", i))
-
-  data <- read.csv(paste0(file_path, "data_", idx[i], ".csv"))
-  data <- subset(data, select = -c(y_qol))
-  colnames(data) <- c("W_1", "W_2", "A", "Z", "M_1", "Y")
-
-  w_names <- str_subset(colnames(data), "W")
-  m_names <- str_subset(colnames(data), "M")
-
-  for (j in seq_len(length(learners))) {
-    results <- ind_dir_effects_medoutcon(data, w_names, m_names, learners[j])
-    results_sde[i, j] <- results$dir_result_os$theta
-    results_sie[i, j] <- results$ind_result_os$theta
-  }
+### Compile results
+plot_comparison <- function(biases) {
+  boxplot(biases,
+    main = "Biases",
+    ylab = "Bias",
+    col = "steelblue2",
+    border = "black"
+  )
+  abline(h = 0, col = "black", lty = "dashed")
 }
 
-results_sde
-results_sie
+results_path <- "./Results/"
+n_sim <- 300
 
-write.csv(results_sde, paste(save_path, "estimates_sde_posi_moc.csv"), row.names = FALSE)
-write.csv(results_sie, paste(save_path, "estimates_sie_posi_moc.csv"), row.names = FALSE)
+# SDE
+sde_bias_gcomp <- read.csv(
+  paste0(results_path, sim_folder, "gcomp_sde_rud_", n_sim, ".csv")
+)
+sde_bias_iptw <- read.csv(
+  paste0(results_path, sim_folder, "iptw_sde_rud_", n_sim, ".csv")
+)
+sde_bias_tmle <- read.csv(
+  paste0(results_path, sim_folder, "tmle_sde_rud_", n_sim, ".csv")
+)
+sde_bias_onestep <- read.csv(
+  paste0(results_path, sim_folder, "onestep_sde_rud_", n_sim, ".csv")
+)
 
-boxplot(results_sde)
-boxplot(results_sie)
+# SIE
+sie_bias_gcomp <- read.csv(
+  paste0(results_path, sim_folder, "gcomp_sie_rud_", n_sim, ".csv")
+)
+sie_bias_iptw <- read.csv(
+  paste0(results_path, sim_folder, "iptw_sie_rud_", n_sim, ".csv")
+)
+sie_bias_tmle <- read.csv(
+  paste0(results_path, sim_folder, "tmle_sie_rud_", n_sim, ".csv")
+)
+sie_bias_onestep <- read.csv(
+  paste0(results_path, sim_folder, "onestep_sie_rud_", n_sim, ".csv")
+)
 
+plot_comparison(sde_bias_gcomp)
+plot_comparison(sde_bias_iptw)
+plot_comparison(sde_bias_tmle)
+plot_comparison(sde_bias_onestep)
 
-##### IPTW positivity
-file_path <- "../Data/new_simulations/"
-
-results_sde <- matrix(nrow = n_sim, ncol = length(libs))
-results_sie <- matrix(nrow = n_sim, ncol = length(libs))
-colnames(results_sde) <- libs
-colnames(results_sie) <- libs
-
-for (i in 1:n_sim) {
-  print(paste0("Simulation ", i))
-
-  data <- read.csv(paste0(file_path, "data_", idx[i], ".csv"))
-  data <- subset(data, select = -c(w3))
-  colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
-
-  for (j in seq_len(length(libs))) {
-    try(results <- iptw_direct_indirect(data, libs[j]))
-    results_sde[i, j] <- results$iptw_edn
-    results_sie[i, j] <- results$iptw_ein
-  }
-}
-
-results_sde
-results_sie
-
-write.csv(results_sde, paste(save_path, "estimates_sde_posit_iptw.csv"), row.names = FALSE)
-write.csv(results_sie, paste(save_path, "estimates_sie_posit_iptw.csv"), row.names = FALSE)
-
-boxplot(results_sde)
-boxplot(results_sie)
-
-
-##### IPTW positivity with quantitative variables
-file_path <- "../Data/quantitative_simulations/"
-
-results_sde <- matrix(nrow = n_sim, ncol = length(libs))
-results_sie <- matrix(nrow = n_sim, ncol = length(libs))
-colnames(results_sde) <- libs
-colnames(results_sie) <- libs
-
-for (i in 1:n_sim) {
-  print(paste0("Simulation ", i))
-
-  data <- read.csv(paste0(file_path, "data_", idx[i], ".csv"))
-  data <- subset(data, select = -c(y_qol))
-  colnames(data) <- c("w1", "w2", "a", "z", "m", "y")
-
-  for (j in seq_len(length(libs))) {
-    try(results <- iptw_direct_indirect(data, libs[j]))
-    results_sde[i, j] <- results$iptw_edn
-    results_sie[i, j] <- results$iptw_ein
-  }
-}
-
-results_sde
-results_sie
-
-write.csv(results_sde, paste(save_path, "estimates_sde_posit_quant_iptw.csv"), row.names = FALSE)
-write.csv(results_sie, paste(save_path, "estimates_sie_posit_quant_iptw.csv"), row.names = FALSE)
-
-boxplot(results_sde)
-boxplot(results_sie)
+plot_comparison(sie_bias_gcomp)
+plot_comparison(sie_bias_iptw)
+plot_comparison(sie_bias_tmle)
+plot_comparison(sie_bias_onestep)

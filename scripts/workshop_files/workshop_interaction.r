@@ -9,7 +9,6 @@ workshop_estimates <- function(data) {
   y <- data$y
 
   # (a, a') = (1, 0)
-  # lm_y <- lm(y ~ m + a + z + w) # a:m
   lm_y <- lm(y ~ z + w + a * m) # note : a * m <=> a + m + a:m
   pred_a1z0 <- predict(lm_y,
     newdata = data.frame(m = m, a = 1, z = 0, w = w)
@@ -31,7 +30,6 @@ workshop_estimates <- function(data) {
   res_1_0 <- mean(pred_pseudo_1_0)
 
   # (a, a') = (1, 1)
-  # lm_y <- lm(y ~ m + a + z + w) # a:m
   lm_y <- lm(y ~ z + w + a * m)
   pred_a1z0 <- predict(lm_y,
     newdata = data.frame(m = m, a = 1, z = 0, w = w)
@@ -53,7 +51,6 @@ workshop_estimates <- function(data) {
   res_1_1 <- mean(pred_pseudo_1_1)
 
   # (a, a') = (0, 0)
-  # lm_y <- lm(y ~ m + a + z + w)
   lm_y <- lm(y ~ z + w + a * m)
   pred_a0z0 <- predict(lm_y,
     newdata = data.frame(m = m, a = 0, z = 0, w = w)
@@ -93,11 +90,9 @@ colnames(data_1) <- colnames(data_2) <- c("w1", "w2", "a", "z", "m", "y")
 
 res <- workshop_estimates(data_1)
 res
-# [1] 0.05930487 0.01354218
 
 res <- workshop_estimates(data_2)
 res
-# [1] 0.04104866 0.02594974
 
 true_sde <- 0.0624
 true_sie <- 0.0112

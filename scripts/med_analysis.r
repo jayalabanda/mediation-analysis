@@ -144,18 +144,6 @@ end_time <- Sys.time()
 diff <- end_time - start_time
 diff
 
-# avec n_sim = 100
-# 12.28 s
-
-# avec n_sim = 200
-# 24.58 s
-
-# avec n_sim = 500
-# 61.42 s
-
-# avec n_sim = 1000
-# 121.49 s
-
 #####################################################
 #####################################################
 
@@ -331,24 +319,17 @@ medtmle <- function(data, covars, A, Z, M, outcome, amodel, zmodel, mmodel, ymod
   zA0 <- predict(zfit, newdata = dfa0, type = "response")
   zA1 <- predict(zfit, newdata = dfa1, type = "response")
 
-  # pas besoin de zA0 et zA1 ?
-
   mfit <- glm(formula = mmodel, family = "binomial", data = obsdat)
   mZ1A0 <- predict(mfit, newdata = dfa0z1, type = "response")
   mZ0A0 <- predict(mfit, newdata = dfa0z0, type = "response")
-  mZ1A1 <- predict(mfit, newdata = dfa1z1, type = "response") # enlever
-  mZ0A1 <- predict(mfit, newdata = dfa1z0, type = "response") # enlever
-
-  # TODO
-  # juste a = 1 et a = 0
+  mZ1A1 <- predict(mfit, newdata = dfa1z1, type = "response")
+  mZ0A1 <- predict(mfit, newdata = dfa1z0, type = "response")
 
   # Empirical dist. of M_{A=0} | Z
   gmA0 <- mZ1A0 * zA0 + mZ0A0 * (1 - zA0)
   # Empirical dist. of M_{A=1} | Z
   gmA1 <- mZ1A1 * zA1 + mZ0A1 * (1 - zA1)
 
-  # m sans ajuster sur z
-  # dfa0, dfa1
 
   # Weights
   afit <- glm(formula = amodel, family = "binomial", data = tmpdat)
